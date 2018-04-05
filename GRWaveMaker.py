@@ -4,8 +4,6 @@ import time
 
 
 i = pi / 2.
-m1 = 35.4
-m2 = 29.8
 c = cos(i) 
 c2 = c**2
 c4 = c**4
@@ -13,9 +11,6 @@ c6 = c**6
 s = sin(i)
 s2 = s**2
 s4 = s**4
-m = m1 + m2
-mu = m1*m2 / m
-eta = mu / m 
 ln2 = log(2)
 ln3_2 = log(3/2.)
 
@@ -62,7 +57,7 @@ class GRWaveMaker:
 
     def __omega(self):
         #self.omega =  self.c0**3 / (8 * self.G * self.m ) * ( self.Theta**(-3/8.) + (743 / 2688. + 11/32. * self.eta) * self.Theta**(-5/8.) - 3 * pi / 10. * self.Theta**(-3/4.) + (1855099/14450688. + 56975 / 258048. * self.eta + 371 / 2048. * self.eta2) * self.Theta**(-7/8.) )
-        self.omega =  1 / (8 * self.Gm_c03 * self.m) * ( self.Theta**(-3/8.) + (743 / 2688. + 11/32. * self.eta) * self.Theta**(-5/8.) - 3 * pi / 10. * self.Theta**(-3/4.) + (1855099/14450688. + 56975 / 258048. * self.eta + 371 / 2048. * self.eta2) * self.Theta**(-7/8.) )
+        self.omega =  1 / (8 * self.Gm_c03 * self.m) * ( self.Theta**(-3/8.) + (743 / 2688. + 11 / 32. * self.eta) * self.Theta**(-5/8.) - 3 * pi / 10. * self.Theta**(-3/4.) + (1855099/14450688. + 56975 / 258048. * self.eta + 371 / 2048. * self.eta2) * self.Theta**(-7/8.) )
 
     def __psi(self):
         #self.psi =  self.phi - 2 * self.G * self.m * self.omega / self.c0**3 * log(self.omega / self.omega0)
@@ -70,22 +65,22 @@ class GRWaveMaker:
 
     def __x(self):
         #self.x = ( self.G * self.m * self.omega / self.c0**3 ) ** 2/3
-        self.x = ( self.Gm_c03 * self.m * self.omega ) ** 2/3
+        self.x = ( self.Gm_c03 * self.m * self.omega ) ** (2/3.)
 
     def __Hp0(self):
-        return - ( 1 + c2 ) * cos( 2 * self.psi)
+        return - ( 1 + c2 ) * cos( 2 * self.psi )
 
     def __Hp1_2(self):
-        return - s / 8. * self.dm / self.m * ( ( 5 + c2) * cos(self.psi) - 9 * ( 1 + c2 ) * cos( 3 * self.psi ) )
+        return - s / 8. * self.dm / self.m * ( ( 5 + c2) * cos(self.psi) - 9 * ( 1 + c2 ) * cos(3*self.psi) )
 
     def __Hp1(self):
-        return 1 / 6. * ( ( 19 + 9 * c2 - 2 * c4) - self.eta * ( 19 - 11 * c2 - 6 * c4) ) * cos(2*self.psi) - 4 / 3. * s2 * ( 1 + c2 ) * ( 1 - 3 * self.eta )* cos( 4 * self.psi ) 
+        return 1 / 6. * ( ( 19 + 9 * c2 - 2 * c4) - self.eta * ( 19 - 11 * c2 - 6 * c4) ) * cos(2*self.psi) - 4 / 3. * s2 * ( 1 + c2 ) * ( 1 - 3 * self.eta )* cos(4*self.psi) 
 
     def __Hp3_2(self):
-        return s / 192. * self.dm / self.m * ( ( ( 57 + 60 * c2 - c4) - 2 * self.eta * ( 49 - 12 * c2 - c4) ) * cos(self.psi) - 27 / 2. * ( (73 + 40 * c2 - 9 * c4) - 2 * self.eta * ( 25 - 8 * c2 - 9 * c4 ) ) * cos(3 * self.psi) + 625 / 2. * ( 1 - 2 * self.eta) * s2 * ( 1 + c2 ) * cos( 5 * self.psi) ) - 2 * pi * (1 + c2) * cos(2 * self.psi)
+        return s / 192. * self.dm / self.m * ( ( ( 57 + 60 * c2 - c4) - 2 * self.eta * ( 49 - 12 * c2 - c4) ) * cos(self.psi) - 27 / 2. * ( (73 + 40 * c2 - 9 * c4) - 2 * self.eta * ( 25 - 8 * c2 - 9 * c4 ) ) * cos(3*self.psi) + 625 / 2. * ( 1 - 2 * self.eta) * s2 * ( 1 + c2 ) * cos(5*self.psi) ) - 2 * pi * (1 + c2) * cos(2*self.psi)
 
     def __Hp2(self):
-        return 1 / 120. * ( ( 22 + 396 * c2 + 145 * c4 - 5 * c6 ) + 5 / 3. * self.eta * ( 706 - 216 * c2 - 251 * c4 + 15 * c6 )  - 5 * self.eta2 * ( 98 - 108 * c2 + 7 * c4 + 5 * c6 ) ) * cos( 2 * self.psi ) + 2 / 15. * s2 * ( ( 59 + 35 * c2 - 8 * c4 ) - 5 / 3. * self.eta * ( 131 + 59 * c2 - 24 * c4 ) + 5 * self.eta2 * ( 21 - 3 * c2 - 8 * c4 ) ) * cos( 4 * self.psi ) - 81 / 40. * ( 1 - 5 * self.eta + 5 * self.eta2 ) * s4 * ( 1 + c2 ) * cos( 6 * self.psi ) + s / 40. * self.dm / self.m * ( ( 11 + 7 * c2 + 10 * (5 + c2) * ln2 ) * sin( self.psi ) - 5 * pi * ( 5 + c2 ) * cos( self.psi) - 27 * ( 7 - 10 * ln3_2) * ( 1 + c2 ) * sin( 3 * self.psi ) + 135 * pi * ( 1 + c2 ) * cos( 3 * self.psi ) ) 
+        return 1 / 120. * ( ( 22 + 396 * c2 + 145 * c4 - 5 * c6 ) + 5 / 3. * self.eta * ( 706 - 216 * c2 - 251 * c4 + 15 * c6 )  - 5 * self.eta2 * ( 98 - 108 * c2 + 7 * c4 + 5 * c6 ) ) * cos(2*self.psi) + 2 / 15. * s2 * ( ( 59 + 35 * c2 - 8 * c4 ) - 5 / 3. * self.eta * ( 131 + 59 * c2 - 24 * c4 ) + 5 * self.eta2 * ( 21 - 3 * c2 - 8 * c4 ) ) * cos(4*self.psi) - 81 / 40. * ( 1 - 5 * self.eta + 5 * self.eta2 ) * s4 * ( 1 + c2 ) * cos(6*self.psi) + s / 40. * self.dm / self.m * ( ( 11 + 7 * c2 + 10 * (5 + c2) * ln2 ) * sin(self.psi) - 5 * pi * ( 5 + c2 ) * cos(self.psi) - 27 * ( 7 - 10 * ln3_2) * ( 1 + c2 ) * sin(3*self.psi) + 135 * pi * ( 1 + c2 ) * cos(3*self.psi) ) 
 
     def makeWave(self, m1, m2, phic, omega0, tc, t):
         #if t > tc:
