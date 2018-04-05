@@ -1,5 +1,5 @@
 
-from numpy import cos, sin , log, pi, arange
+from numpy import cos, sin , log, pi, arange, isnan, isfinite
 import time
 
 
@@ -13,6 +13,8 @@ s2 = s**2
 s4 = s**4
 ln2 = log(2)
 ln3_2 = log(3/2.)
+
+counter = 1
 
 class GRWaveMaker:
     __slots__ = ["m1", "m2", "m", "dm", "mu", "eta", "eta2", "Theta", "phi", "omega", "psi", "x", "omega0", "tc", "c0", "G"]
@@ -58,7 +60,13 @@ class GRWaveMaker:
     def __omega(self):
         #self.omega =  self.c0**3 / (8 * self.G * self.m ) * ( self.Theta**(-3/8.) + (743 / 2688. + 11/32. * self.eta) * self.Theta**(-5/8.) - 3 * pi / 10. * self.Theta**(-3/4.) + (1855099/14450688. + 56975 / 258048. * self.eta + 371 / 2048. * self.eta2) * self.Theta**(-7/8.) )
         self.omega =  1 / (8 * self.Gm_c03 * self.m) * ( self.Theta**(-3/8.) + (743 / 2688. + 11 / 32. * self.eta) * self.Theta**(-5/8.) - 3 * pi / 10. * self.Theta**(-3/4.) + (1855099/14450688. + 56975 / 258048. * self.eta + 371 / 2048. * self.eta2) * self.Theta**(-7/8.) )
-
+        if True in isnan(self.omega):
+            print "\n\nnan found in omega. m1, m2, phic, tc", m1, m2, phic, tc, "\ntimes evaluesed for:\n\n", self.t
+            raise ValueError("omega found nan value")
+        if False in isfinite(self.omega):
+            print "\n\ninf found in omega. m1, m2, phic, tc", m1, m2, phic, tc, "\ntimes evaluesed for:\n\n", self.t
+            raise ValueError("omega found inf value")
+    
     def __psi(self):
         #self.psi =  self.phi - 2 * self.G * self.m * self.omega / self.c0**3 * log(self.omega / self.omega0)
         self.psi =  self.phi - 2 * self.Gm_c03 * self.m * self.omega * log(self.omega / self.omega0)
@@ -82,7 +90,7 @@ class GRWaveMaker:
     def __Hp2(self):
         return 1 / 120. * ( ( 22 + 396 * c2 + 145 * c4 - 5 * c6 ) + 5 / 3. * self.eta * ( 706 - 216 * c2 - 251 * c4 + 15 * c6 )  - 5 * self.eta2 * ( 98 - 108 * c2 + 7 * c4 + 5 * c6 ) ) * cos(2*self.psi) + 2 / 15. * s2 * ( ( 59 + 35 * c2 - 8 * c4 ) - 5 / 3. * self.eta * ( 131 + 59 * c2 - 24 * c4 ) + 5 * self.eta2 * ( 21 - 3 * c2 - 8 * c4 ) ) * cos(4*self.psi) - 81 / 40. * ( 1 - 5 * self.eta + 5 * self.eta2 ) * s4 * ( 1 + c2 ) * cos(6*self.psi) + s / 40. * self.dm / self.m * ( ( 11 + 7 * c2 + 10 * (5 + c2) * ln2 ) * sin(self.psi) - 5 * pi * ( 5 + c2 ) * cos(self.psi) - 27 * ( 7 - 10 * ln3_2) * ( 1 + c2 ) * sin(3*self.psi) + 135 * pi * ( 1 + c2 ) * cos(3*self.psi) ) 
 
-    def makeWave(self, m1, m2, phic, omega0, tc, t):
+    def makeWave(self, m1, m2, phic, tc, t):
         #if t > tc:
         #    print "Error: time of evaluation after merger, pn formalism does not hold"
         #    return
@@ -91,7 +99,8 @@ class GRWaveMaker:
         self.m2 = m2
         self.phic = phic
         self.tc = tc
-        self.omega0 = omega0
+        self.omega0 = 10 * pi
+        self.t = t
         self.__m()
         #print "m", self.m, "\n"
         self.__dm()

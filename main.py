@@ -1,24 +1,23 @@
 
 import numpy as np
-#import gwEmceeCode as code
+np.random.seed(123)
+
+import emcee
 import matplotlib.pyplot as plt
 import time
 import os
+import corner
 from GRWaveMaker import GRWaveMaker
 
 class GRProperties:
     m1 = 35.4
     m2 = 29.8                            
-    phic = 0
-    omega0 = np.pi * 10
-    tc = 0
+    phic = 0.0
+    tc = 0.0
     signalStart = -0.1
     signalSamples = 1000
     signalTimestep = 0.01
-
-
-
-
+    std = 1.0
 
 class main():
 
@@ -27,9 +26,8 @@ class main():
 
         self.nDim            = 4 #M1, M2, phi_c, t_c
         self.nWalkers        = 50
-        self.timesteps       = 300
         self.burnIn          = 50
-
+        self.nSteps          = 100
 
         self.m1 = 35.4
         self.m2 = 29.8
@@ -47,8 +45,33 @@ class main():
         if not os.path.exists(cwd + "/" + self.dataFolderName):
             os.makedirs(cwd + "/" + self.dataFolderName)
 
-    def plotWaveandFrequencyRange(self, Params = "WW", GandC0 = "natural"):
+    def __setParams(self, Params):
+        if Params == "WW":        
+            self.m1 = WWProperties.m1
+            self.m2 = WWProperties.m2
+            self.phic = WWProperties.phic
+            self.tc = WWProperties.tc
+            self.signalStart     = WWProperties.signalStart
+            self.signalSamples   = WWProperties.signalSamples
+            self.signalTimestep  = WWProperties.signalTimestep    
+            self.std = WWProperties.std
+            self.var = self.std**2    
+        else:
+            if Params == "GR":        
+                self.m1 = GRProperties.m1
+                self.m2 = GRProperties.m2
+                self.phic = GRProperties.phic
+                self.tc = GRProperties.tc
+                self.signalStart     = GRProperties.signalStart
+                self.signalSamples   = GRProperties.signalSamples
+                self.signalTimestep  = GRProperties.signalTimestep    
+                self.std = GRProperties.std
+                self.var = self.std**2    
+            else:
+                print "---Error: Params", Params, "not a valid option"
+                return
 
+    def __setGandC0(self, GandC0):
         if GandC0 == "natural":
             self.waveMaker.c0 = 1
             self.waveMaker.Gm_c03 = 1
@@ -60,31 +83,13 @@ class main():
                 print "---Error: GandC0", GandC0, "not a valid option"
                 return
 
-        if Params == "WW":        
-            m1 = WWProperties.m1
-            m2 = WWProperties.m2
-            phic = WWProperties.phic
-            omega0 = WWProperties.omega0
-            tc = WWProperties.tc
-            signalStart     = WWProperties.signalStart
-            signalSamples   = WWProperties.signalSamples
-            signalTimestep  = WWProperties.signalTimestep        
-        else:
-            if Params == "GR":        
-                m1 = GRProperties.m1
-                m2 = GRProperties.m2
-                phic = GRProperties.phic
-                omega0 = GRProperties.omega0
-                tc = GRProperties.tc
-                signalStart     = GRProperties.signalStart
-                signalSamples   = GRProperties.signalSamples
-                signalTimestep  = GRProperties.signalTimestep  
-            else:
-                print "---Error: Params", Params, "not a valid option"
-                return
+    def plotWaveandFrequencyRange(self, Params = "WW", GandC0 = "si"):
+        
+        self.__setParams(Params)
+        self.__setGandC0(GandC0)
 
-        times = -np.arange(signalSamples) * signalTimestep + signalStart
-        signal = self.waveMaker.makeWave(m1, m2, phic, omega0, tc, times)   
+        times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
+        signal = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, times)   
         frequency = self.waveMaker.omega / (2 * np.pi)
 
         plt.figure(1)
@@ -98,42 +103,86 @@ class main():
         plt.xlabel('Time (s)')
         plt.ylabel('$R h_+$')
 
-        plt.savefig(self.figFolderName + "/" + Params + " " + GandC0 + " units signal signalStart %f signalSamples %d signalTimestep %f (WW fig 8).pdf" % (signalStart, signalSamples, signalTimestep), bbox_inches='tight')
+        plt.savefig(self.figFolderName + "/" + Params + " " + GandC0 + " units signal signalStart %f signalSamples %d signalTimestep %f (WW fig 8).pdf" % (self.signalStart, self.signalSamples, self.signalTimestep), bbox_inches='tight')
         plt.cla()
 
         print "frequency hight", frequency[0], "frequency low", frequency[-1]
 
-    #sampler = code.makeSamplerGR4(nWalkers, timesteps)
+    def emcee(self, Params = "WW", GandC0 = "si"):
 
-    #samples = sampler.chain[:, burnIn:, :].reshape((-1, nDim))
-    #stats = [[np.mean(samples[:,i]), np.std(samples[:,i])] for i in range(nDim)]
+        self.__setParams(Params)
+        self.__setGandC0(GandC0)
 
-    #np.savetxt(samplesFilename, samples)
-    #np.savetxt(statsFilename, stats)
-    #np.savetxt(sampelrFilenameM1, sampler.chain[:, :, 0])
-    #np.savetxt(sampelrFilenameDM, sampler.chain[:, :, 1])
-    #np.savetxt(sampelrFilenamePhic, sampler.chain[:, :, 2])
-    #np.savetxt(sampelrFilenameTc, sampler.chain[:, :, 3])
+        self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
+        self.signal = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
+        self.signal = np.random.normal(self.signal, self.std)
+        
+        pos = [[self.m1, self.m2, self.phic, self.tc] + np.random.randn(self.nDim) for i in range(self.nWalkers)] #the initial positions for the walkers
+        sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
+        sampler.run_mcmc(pos, self.nSteps)
 
-    #code.makePlots(sampler, burnIn)
+
+        self.__makeWalkerPlot(sampler)
+        #self.__makeCornerPlot(sampler.chain.reshape((-1,4)))
+
+    def __lnProb(self, theta):
+        lp = self.__lnPrior(*theta)
+        if not np.isfinite(lp):
+            return -np.inf
+        return lp + self.__lnLike(*theta)
+
+    def __lnLike(self, m1, m2, phic, tc):
+        temp = - 1 / (2*self.var) * np.sum((self.waveMaker.makeWave(m1, m2, phic, tc, t = self.times + tc ) - self.signal)**2)
+        return  temp
+
+    def __lnPrior(self, m1, m2, phic, tc):
+        if 0.0 < m1 < 40.0 and 0.0 < m2 < 40.0 and 0.0 < phic < 2*np.pi and -10.0 < tc < 10.0:
+            return 0.0
+        return -np.inf
+
+    def __makeWalkerPlot(self, sampler):
+        print "making walker plot"
+        plt.clf()
+
+        fig, axes = plt.subplots(self.nDim, figsize=(10, 7), sharex=True)
+        samples = sampler.chain #samples = [walkers, steps, dim]
+
+        labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"]
+        for i in range(self.nDim):
+            ax = axes[i]
+            ax.plot(samples[:, :, i], "k", alpha=0.3)
+            ax.set_xlim(0, len(samples))
+            ax.set_ylabel(labels[i])
+            ax.yaxis.set_label_coords(-0.1, 0.5)
+
+        axes[-1].set_xlabel("step number");
+
+        fig.tight_layout(h_pad=0.0)
+        fig.savefig("plots/walkers.pdf", bbox_inches='tight')
+
+    def __makeCornerPlot(self, samples):
+        print "making corner plot"
+        fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"], truths=[self.m1, self.m2, self.phic, self.tc])
+        fig.savefig("plots/triangle.pdf")
 
 class WWProperties:
     #Do Not Change!!
     m1 = 1.4
-    m2 = 10                            
-    phic = 0
-    omega0 = np.pi * 10
-    tc = 0
+    m2 = 10.0                         
+    phic = 0.0
+    tc = 0.0
     signalStart = -0.0045
     signalSamples = 500
     signalTimestep = 0.00025
+    std = 1.0
 
 
 if __name__ == "__main__":
     start_time = time.time()
     myClass = main()
-    myClass.plotWaveandFrequencyRange("WW", "si")
+    #myClass.plotWaveandFrequencyRange("WW", "si")
     #myClass.plotWaveandFrequencyRange("WW", "natural")
+    myClass.emcee()
     print("--- %s seconds ---" % (time.time() - start_time))
 
 
