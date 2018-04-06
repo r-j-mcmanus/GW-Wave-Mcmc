@@ -27,13 +27,15 @@ class main():
         self.nDim            = 4 #M1, M2, phi_c, t_c
         self.nWalkers        = 50
         self.burnIn          = 50
-        self.nSteps          = 100
+        self.nSteps          = 200
 
         self.m1 = 35.4
         self.m2 = 29.8
         self.phic = 0
         self.omega0 = np.pi * 10
         self.tc = 0
+
+        self.ln2pi = np.log(2*np.pi)
 
         self.waveMaker = GRWaveMaker()
 
@@ -46,30 +48,28 @@ class main():
             os.makedirs(cwd + "/" + self.dataFolderName)
 
     def __setParams(self, Params):
-        if Params == "WW":        
-            self.m1 = WWProperties.m1
-            self.m2 = WWProperties.m2
-            self.phic = WWProperties.phic
-            self.tc = WWProperties.tc
-            self.signalStart     = WWProperties.signalStart
-            self.signalSamples   = WWProperties.signalSamples
-            self.signalTimestep  = WWProperties.signalTimestep    
-            self.std = WWProperties.std
-            self.var = self.std**2    
+        if Params == "WW":
+            className = WWProperties
+
         else:
             if Params == "GR":        
-                self.m1 = GRProperties.m1
-                self.m2 = GRProperties.m2
-                self.phic = GRProperties.phic
-                self.tc = GRProperties.tc
-                self.signalStart     = GRProperties.signalStart
-                self.signalSamples   = GRProperties.signalSamples
-                self.signalTimestep  = GRProperties.signalTimestep    
-                self.std = GRProperties.std
-                self.var = self.std**2    
+                className = GRProperties
             else:
                 print "---Error: Params", Params, "not a valid option"
                 return
+
+        self.m1 = className.m1
+        self.m2 = className.m2
+        self.phic = className.phic
+        self.tc = className.tc
+        self.signalStart     = className.signalStart
+        self.signalSamples   = className.signalSamples
+        self.signalTimestep  = className.signalTimestep    
+        self.std = className.std
+        self.var = self.std**2   
+        self.invVar = 1 / self.var 
+
+
 
     def __setGandC0(self, GandC0):
         if GandC0 == "natural":
@@ -106,7 +106,7 @@ class main():
         plt.savefig(self.figFolderName + "/" + Params + " " + GandC0 + " units signal signalStart %f signalSamples %d signalTimestep %f (WW fig 8).pdf" % (self.signalStart, self.signalSamples, self.signalTimestep), bbox_inches='tight')
         plt.cla()
 
-        print "frequency hight", frequency[0], "frequency low", frequency[-1]
+        print "frequency hight", frequency[0], "frequency low", frequency[-1], "\n"
 
     def emcee(self, Params = "WW", GandC0 = "si"):
 
@@ -114,31 +114,64 @@ class main():
         self.__setGandC0(GandC0)
 
         self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
-        self.signal = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
-        self.signal = np.random.normal(self.signal, self.std)
-        
+        wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
+        self.signal = np.random.normal(wave, self.std)
+
         pos = [[self.m1, self.m2, self.phic, self.tc] + np.random.randn(self.nDim) for i in range(self.nWalkers)] #the initial positions for the walkers
+
+        for params in pos:
+            if params[0] < 0:
+                params[0] = -params[0]
+
+            if params[1] < 0:
+                params[1] = -params[1]
+
+            if params[1] > params[0]: #m2<m1
+                params[1] = params[0]
+
+            if params[2] < 0:
+                params[2] = -params[2]
+
+            if params[2] > 2 * np.pi:
+                params[2] = 2 * pi
+
+            if params[3] < 0:
+                params[3] = -params[3]
+
+            if params[3] > 10:
+                params[3] = 10
+
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
         sampler.run_mcmc(pos, self.nSteps)
 
 
         self.__makeWalkerPlot(sampler)
-        #self.__makeCornerPlot(sampler.chain.reshape((-1,4)))
+        self.__makeCornerPlot(sampler.chain.reshape((-1,self.nDim)))
+
+
+
 
     def __lnProb(self, theta):
-        lp = self.__lnPrior(*theta)
+        m1, m2, phic, tc = theta
+        lp = self.__lnPrior(m1, m2, phic, tc)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self.__lnLike(*theta)
-
-    def __lnLike(self, m1, m2, phic, tc):
-        temp = - 1 / (2*self.var) * np.sum((self.waveMaker.makeWave(m1, m2, phic, tc, t = self.times + tc ) - self.signal)**2)
-        return  temp
+        return lp + self.__lnLike(m1, m2, phic, tc)
 
     def __lnPrior(self, m1, m2, phic, tc):
-        if 0.0 < m1 < 40.0 and 0.0 < m2 < 40.0 and 0.0 < phic < 2*np.pi and -10.0 < tc < 10.0:
+        if 0 < m1 < 40 and 0 < m2 < m1 and 0 < phic < 2*np.pi and 0 <= tc < 10.0:
             return 0.0
         return -np.inf
+
+    def __lnLike(self, m1, m2, phic, tc):
+        wave = self.waveMaker.makeWave(m1, m2, phic, tc, self.times)
+        
+        temp = - 0.5 * len(wave) * np.log( 2 * np.pi * self.var ) - 0.5 *  self.invVar * np.sum( (wave - self.signal[(len(self.signal) - len(wave)):])**2 ) 
+        
+        return  temp
+
+
+
 
     def __makeWalkerPlot(self, sampler):
         print "making walker plot"
@@ -146,11 +179,33 @@ class main():
 
         fig, axes = plt.subplots(self.nDim, figsize=(10, 7), sharex=True)
         samples = sampler.chain #samples = [walkers, steps, dim]
+        #print "\n\n samples.shape \n\n", samples.shape
+        
+        for i in samples[:, :, 0]:
+            for j in i:
+                if not 0 < j < 40:
+                    print "m1 not in range", j
+
+        for i in samples[:, :, 1]:
+            for j in i:
+                if not 0 < j < 40:
+                    print "m2 not in range", j
+
+        for i in samples[:, :, 2]:
+            for j in i:
+                if not 0 < j < 2 * np.pi:
+                    print "phic not in range", j
+
+        for i in samples[:, :, 3]:
+            for j in i:
+                if not 0 < j < 10:
+                    print "tc not in range", j
+
 
         labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"]
         for i in range(self.nDim):
             ax = axes[i]
-            ax.plot(samples[:, :, i], "k", alpha=0.3)
+            ax.plot(samples[:, :, i].T, "k", alpha=0.3)
             ax.set_xlim(0, len(samples))
             ax.set_ylabel(labels[i])
             ax.yaxis.set_label_coords(-0.1, 0.5)
@@ -165,24 +220,64 @@ class main():
         fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"], truths=[self.m1, self.m2, self.phic, self.tc])
         fig.savefig("plots/triangle.pdf")
 
+    def makeTestWave(self, m1, m2, phic, tc, times):
+        self.__setParams("WW")
+        self.__setGandC0("si")
+
+        myClass.waveMaker.makeWave(m1, m2, phic, tc, times )
+
 class WWProperties:
     #Do Not Change!!
-    m1 = 1.4
-    m2 = 10.0                         
+    m1 = 10
+    m2 = 1.4                         
     phic = 0.0
     tc = 0.0
     signalStart = -0.0045
     signalSamples = 500
     signalTimestep = 0.00025
-    std = 1.0
+    std = 0.1
 
 
 if __name__ == "__main__":
-    start_time = time.time()
-    myClass = main()
-    #myClass.plotWaveandFrequencyRange("WW", "si")
-    #myClass.plotWaveandFrequencyRange("WW", "natural")
-    myClass.emcee()
-    print("--- %s seconds ---" % (time.time() - start_time))
+    try:
+        print "\n"
+        start_time = time.time()
+        myClass = main()
+        #myClass.plotWaveandFrequencyRange("WW", "si")
+        #myClass.plotWaveandFrequencyRange("WW", "natural")
+        myClass.emcee()
+
+        #m1 = 1.08e+01
+        #m2 = 1.98e-5
+        #phic = 4.06e-01
+        #tc = 1.87
+        #sampleTimes = -np.arange(50) * WWProperties.signalTimestep + WWProperties.signalStart
+
+        #print "\ntestwave", m1, m2, phic, tc
+        #myClass.makeTestWave(m1, m2, phic, tc, sampleTimes)
+
+        print("--- %s seconds ---" % (time.time() - start_time))
+    except ValueError, message:
+        print "\nValueError", message
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

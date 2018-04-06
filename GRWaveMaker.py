@@ -17,7 +17,6 @@ ln3_2 = log(3/2.)
 counter = 1
 
 class GRWaveMaker:
-    __slots__ = ["m1", "m2", "m", "dm", "mu", "eta", "eta2", "Theta", "phi", "omega", "psi", "x", "omega0", "tc", "c0", "G"]
     
     def __init__(self):
         self.m1 = None
@@ -51,28 +50,18 @@ class GRWaveMaker:
         self.eta2 = self.eta**2
 
     def __Theta(self, t):
-        #self.Theta = self.c0**3 * self.eta / (5 * self.G * self.m) *(self.tc - t)
-        self.Theta = self.eta / (5 * self.Gm_c03 * self.m) *(self.tc - t)
+        self.Theta = self.eta / (5.0 * self.Gm_c03 * self.m) *(self.tc - t)
 
     def __phi(self):
-        self.phi = self.phic - 1 / self.eta * ( self.Theta**(5/8.) + (3715 / 8064. + 55 / 98. * self.eta) * self.Theta**(3/8.) - 3 * pi / 4. * self.Theta**(1/4.) + ( 9275495/14450688. + 284875 / 258048. * self.eta + 1855 / 2048. * self.eta2) * self.Theta**(1/8.) )
+        self.phi = self.phic - 1 / self.eta * ( self.Theta**(5/8.0) + (3715 / 8064.0 + 55 / 96.0 * self.eta) * self.Theta**(3/8.0) - 3 * pi / 4.0 * self.Theta**(1/4.0) + ( 9275495/14450688.0 + 284875 / 258048.0 * self.eta + 1855 / 2048.0 * self.eta2) * self.Theta**(1/8.0) )
 
     def __omega(self):
-        #self.omega =  self.c0**3 / (8 * self.G * self.m ) * ( self.Theta**(-3/8.) + (743 / 2688. + 11/32. * self.eta) * self.Theta**(-5/8.) - 3 * pi / 10. * self.Theta**(-3/4.) + (1855099/14450688. + 56975 / 258048. * self.eta + 371 / 2048. * self.eta2) * self.Theta**(-7/8.) )
-        self.omega =  1 / (8 * self.Gm_c03 * self.m) * ( self.Theta**(-3/8.) + (743 / 2688. + 11 / 32. * self.eta) * self.Theta**(-5/8.) - 3 * pi / 10. * self.Theta**(-3/4.) + (1855099/14450688. + 56975 / 258048. * self.eta + 371 / 2048. * self.eta2) * self.Theta**(-7/8.) )
-        if True in isnan(self.omega):
-            print "\n\nnan found in omega. m1, m2, phic, tc", m1, m2, phic, tc, "\ntimes evaluesed for:\n\n", self.t
-            raise ValueError("omega found nan value")
-        if False in isfinite(self.omega):
-            print "\n\ninf found in omega. m1, m2, phic, tc", m1, m2, phic, tc, "\ntimes evaluesed for:\n\n", self.t
-            raise ValueError("omega found inf value")
+        self.omega =  1 / (8.0 * self.Gm_c03 * self.m) * ( self.Theta**(-3/8.0) + (743 / 2688.0 + 11 / 32.0 * self.eta) * self.Theta**(-5/8.) - 3 * pi / 10.0 * self.Theta**(-3/4.0) + (1855099/14450688.0 + 56975 / 258048.0 * self.eta + 371 / 2048.0 * self.eta2) * self.Theta**(-7/8.0) )
     
     def __psi(self):
-        #self.psi =  self.phi - 2 * self.G * self.m * self.omega / self.c0**3 * log(self.omega / self.omega0)
         self.psi =  self.phi - 2 * self.Gm_c03 * self.m * self.omega * log(self.omega / self.omega0)
 
     def __x(self):
-        #self.x = ( self.G * self.m * self.omega / self.c0**3 ) ** 2/3
         self.x = ( self.Gm_c03 * self.m * self.omega ) ** (2/3.)
 
     def __Hp0(self):
@@ -91,39 +80,42 @@ class GRWaveMaker:
         return 1 / 120. * ( ( 22 + 396 * c2 + 145 * c4 - 5 * c6 ) + 5 / 3. * self.eta * ( 706 - 216 * c2 - 251 * c4 + 15 * c6 )  - 5 * self.eta2 * ( 98 - 108 * c2 + 7 * c4 + 5 * c6 ) ) * cos(2*self.psi) + 2 / 15. * s2 * ( ( 59 + 35 * c2 - 8 * c4 ) - 5 / 3. * self.eta * ( 131 + 59 * c2 - 24 * c4 ) + 5 * self.eta2 * ( 21 - 3 * c2 - 8 * c4 ) ) * cos(4*self.psi) - 81 / 40. * ( 1 - 5 * self.eta + 5 * self.eta2 ) * s4 * ( 1 + c2 ) * cos(6*self.psi) + s / 40. * self.dm / self.m * ( ( 11 + 7 * c2 + 10 * (5 + c2) * ln2 ) * sin(self.psi) - 5 * pi * ( 5 + c2 ) * cos(self.psi) - 27 * ( 7 - 10 * ln3_2) * ( 1 + c2 ) * sin(3*self.psi) + 135 * pi * ( 1 + c2 ) * cos(3*self.psi) ) 
 
     def makeWave(self, m1, m2, phic, tc, t):
-        #if t > tc:
-        #    print "Error: time of evaluation after merger, pn formalism does not hold"
-        #    return
         #start_time = time.time()
         self.m1 = m1
         self.m2 = m2
         self.phic = phic
         self.tc = tc
         self.omega0 = 10 * pi
-        self.t = t
         self.__m()
-        #print "m", self.m, "\n"
+        #print "\nm", self.m
         self.__dm()
-        #print "dm", self.dm, "\n"
+        #print "dm", self.dm
         self.__mu()
-        #print "mu", self.mu, "\n"
+        #print "mu", self.mu
         self.__eta()
-        #print "eta", self.eta, "\n"
+        #print "eta", self.eta
         self.__Theta(t)
-        #print "Theta", self.Theta, "\n"
+        #print "\nTheta\n", self.Theta
         self.__phi()
-        #print "phi", self.phi, "\n"
+        #print "phi", self.phi
         self.__omega()
-        #print "omega", self.omega, "\n"
+        #print "\nomega\n", self.omega
         self.__psi()
-        #print "psi", self.psi, "\n"
+        #print "psi", self.psi
         self.__x()
         #print "x", self.x
         #hp_r = 2 * self.G * self.m * self.eta / self.c0**2 * self.x * ( self.__Hp0() + self.x**(1/2.) * self.__Hp1_2() + self.x * self.__Hp1() + self.x**(3/2.) * self.__Hp3_2() + self.x**(2) * self.__Hp2() )
         hp_r = 2 * self.c0 * self.Gm_c03 * self.m * self.eta * self.x * ( self.__Hp0() + self.x**(1/2.) * self.__Hp1_2() + self.x * self.__Hp1() + self.x**(3/2.) * self.__Hp3_2() + self.x**(2) * self.__Hp2() )        
-        #print "hp_r", hp_r, "\n"   
-        #hc_r = 2 * self.G * self.m * self.eta / c0**2 * self.x * ( __Hc0() + self.x**(1/2.) * __Hc1_2() + self.x * __Hc1() + self.x**(3/2.) * __Hc3_2() + self.x**(2) * __Hc2() )
-        #print("--- %s seconds ---" % (time.time() - start_time))
+        #print "\nhp_r\n", hp_r
+        #hc_r = 2 * self.G * self.m * self.eta / self.c0**2 * self.x * ( self.__Hc0() + self.x**(1/2.) * self.__Hc1_2() + self.x * self.__Hc1() + self.x**(3/2.) * self.__Hc3_2() + self.x**(2) * self.__Hc2() )
+        #print("--- wave made in %s seconds ---" % (time.time() - start_time))
+
+        j = len(hp_r)
+        for i in range(len(hp_r)):
+            if not isnan(hp_r[i]):
+                j = i
+                break
+        hp_r = hp_r[j:]
 
         return hp_r
 
