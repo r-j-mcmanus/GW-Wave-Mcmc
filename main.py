@@ -26,8 +26,8 @@ class main():
 
         self.nDim            = 4 #M1, M2, phi_c, t_c
         self.nWalkers        = 50
-        self.burnIn          = 50
-        self.nSteps          = 200
+        self.burnIn          = 500
+        self.nSteps          = 1000
 
         self.m1 = 35.4
         self.m2 = 29.8
@@ -143,11 +143,15 @@ class main():
 
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
         sampler.run_mcmc(pos, self.nSteps)
-
+        
+        chain = sampler.flatchain
+        print chain
+        meanParams = [np.mean(chain.T[i]) for i in range(self.nDim)] 
+        print meanParams
 
         self.__makeWalkerPlot(sampler)
         self.__makeCornerPlot(sampler.chain.reshape((-1,self.nDim)))
-
+        self.__makeMeanTrueSignalPlot(meanParams, wave, self.signal)
 
 
 
@@ -179,28 +183,6 @@ class main():
 
         fig, axes = plt.subplots(self.nDim, figsize=(10, 7), sharex=True)
         samples = sampler.chain #samples = [walkers, steps, dim]
-        #print "\n\n samples.shape \n\n", samples.shape
-        
-        for i in samples[:, :, 0]:
-            for j in i:
-                if not 0 < j < 40:
-                    print "m1 not in range", j
-
-        for i in samples[:, :, 1]:
-            for j in i:
-                if not 0 < j < 40:
-                    print "m2 not in range", j
-
-        for i in samples[:, :, 2]:
-            for j in i:
-                if not 0 < j < 2 * np.pi:
-                    print "phic not in range", j
-
-        for i in samples[:, :, 3]:
-            for j in i:
-                if not 0 < j < 10:
-                    print "tc not in range", j
-
 
         labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"]
         for i in range(self.nDim):
@@ -220,6 +202,15 @@ class main():
         fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"], truths=[self.m1, self.m2, self.phic, self.tc])
         fig.savefig("plots/triangle.pdf")
 
+    def __makeMeanTrueSignalPlot(self, meanParams, wave, signal):
+        print "making mean true signal plot"
+        plt.clf()
+        plt.plot(self.times, signal, label="Signal")
+        plt.plot(self.times, wave, label="True")
+        plt.plot(self.times, self.waveMaker.makeWave(*meanParams, t = self.times), label="Emcee best value")
+        plt.legend(loc = "best")
+        plt.savefig(self.figFolderName + "/"  + "MeanTrueSignalPlot.pdf", bbox_inches='tight')
+
     def makeTestWave(self, m1, m2, phic, tc, times):
         self.__setParams("WW")
         self.__setGandC0("si")
@@ -235,7 +226,7 @@ class WWProperties:
     signalStart = -0.0045
     signalSamples = 500
     signalTimestep = 0.00025
-    std = 0.1
+    std = 0.01
 
 
 if __name__ == "__main__":
