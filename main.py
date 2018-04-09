@@ -17,7 +17,7 @@ class GRProperties:
     phic = 0.0
     tc = 0.0
     
-    signalFq = 1000.0
+    signalFq = 1500.0
 
     signalTimestep = 1/signalFq
     signalStart = -signalTimestep
@@ -176,7 +176,7 @@ class main():
         return lp + self.__lnLike(m1, m2, phic, tc)
 
     def __lnPrior(self, m1, m2, phic, tc):
-        if 0 < m1 < 40 and 0 < m2 < m1 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0:
+        if 0 < m1 < 40 and 0 < m2 < 40 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0:
             return 0.0
         return -np.inf
 
@@ -234,7 +234,7 @@ class main():
         for i in range(self.nDim):
             ax = axes[i]
             ax.plot(samples[:, :, i].T, "k", alpha=0.3)
-            ax.set_xlim(0, len(samples))
+            ax.set_xlim(0, len(samples[:, :, 0]))
             ax.set_ylabel(labels[i])
             ax.yaxis.set_label_coords(-0.1, 0.5)
 
