@@ -79,8 +79,41 @@ class GRWaveMaker:
     def __Hp2(self):
         return 1 / 120. * ( ( 22 + 396 * c2 + 145 * c4 - 5 * c6 ) + 5 / 3. * self.eta * ( 706 - 216 * c2 - 251 * c4 + 15 * c6 )  - 5 * self.eta2 * ( 98 - 108 * c2 + 7 * c4 + 5 * c6 ) ) * cos(2*self.psi) + 2 / 15. * s2 * ( ( 59 + 35 * c2 - 8 * c4 ) - 5 / 3. * self.eta * ( 131 + 59 * c2 - 24 * c4 ) + 5 * self.eta2 * ( 21 - 3 * c2 - 8 * c4 ) ) * cos(4*self.psi) - 81 / 40. * ( 1 - 5 * self.eta + 5 * self.eta2 ) * s4 * ( 1 + c2 ) * cos(6*self.psi) + s / 40. * self.dm / self.m * ( ( 11 + 7 * c2 + 10 * (5 + c2) * ln2 ) * sin(self.psi) - 5 * pi * ( 5 + c2 ) * cos(self.psi) - 27 * ( 7 - 10 * ln3_2) * ( 1 + c2 ) * sin(3*self.psi) + 135 * pi * ( 1 + c2 ) * cos(3*self.psi) ) 
 
+    def __boundaryp(self, R):
+        a = 12.0 / 5.0 * self.eta * R 
+        print "a", a
+        b = self.x**4 * ( 3 * s2 + 5 * (1+c2) * cos ( 2 * self.phi ) ) 
+        print "b", b
+        c = self.x**5 * ( ( 47 + 5 * self.eta ) * s2 + ( 41 - self.eta ) * ( 1 + c2 ) * cos( 2 * self.phi ) ) 
+        print "c", c
+        return a*(b+c)    
+
+    def __boundaryc(self, R):
+        return 24.0 / 5.0 * self.eta * R * ( 3 * self.x**4 + ( 25 - self.eta ) * self.x**5 )* c * sin( 2 * self.phi ) 
+         
+
     def makeWave(self, m1, m2, phic, tc, t):
         #start_time = time.time()
+        self.__setVariables(m1, m2, phic, tc, t)
+
+        hp_r = 2 * self.c0 * self.Gm_c03 * self.m * self.eta * self.x * ( self.__Hp0() + self.x**(1/2.) * self.__Hp1_2() + self.x * self.__Hp1() + self.x**(3/2.) * self.__Hp3_2() + self.x**(2) * self.__Hp2() )        
+        #print "\nhp_r\n", hp_r
+        
+        #hc_r = 2 * self.G * self.m * self.eta / self.c0**2 * self.x * ( self.__Hc0() + self.x**(1/2.) * self.__Hc1_2() + self.x * self.__Hc1() + self.x**(3/2.) * self.__Hc3_2() + self.x**(2) * self.__Hc2() )
+        #print "\nhp_r\n", hp_r        
+
+        #print("--- wave made in %s seconds ---" % (time.time() - start_time))
+
+        j = len(hp_r)
+        for i in range(len(hp_r)):
+            if not isnan(hp_r[i]):
+                j = i
+                break
+        hp_r = hp_r[j:]
+
+        return hp_r
+
+    def __setVariables(self, m1, m2, phic, tc, t):
         self.m1 = m1
         self.m2 = m2
         self.phic = phic
@@ -104,25 +137,14 @@ class GRWaveMaker:
         #print "psi", self.psi
         self.__x()
         #print "x", self.x
-        #hp_r = 2 * self.G * self.m * self.eta / self.c0**2 * self.x * ( self.__Hp0() + self.x**(1/2.) * self.__Hp1_2() + self.x * self.__Hp1() + self.x**(3/2.) * self.__Hp3_2() + self.x**(2) * self.__Hp2() )
-        hp_r = 2 * self.c0 * self.Gm_c03 * self.m * self.eta * self.x * ( self.__Hp0() + self.x**(1/2.) * self.__Hp1_2() + self.x * self.__Hp1() + self.x**(3/2.) * self.__Hp3_2() + self.x**(2) * self.__Hp2() )        
-        #print "\nhp_r\n", hp_r
-        #hc_r = 2 * self.G * self.m * self.eta / self.c0**2 * self.x * ( self.__Hc0() + self.x**(1/2.) * self.__Hc1_2() + self.x * self.__Hc1() + self.x**(3/2.) * self.__Hc3_2() + self.x**(2) * self.__Hc2() )
-        #print("--- wave made in %s seconds ---" % (time.time() - start_time))
 
-        j = len(hp_r)
-        for i in range(len(hp_r)):
-            if not isnan(hp_r[i]):
-                j = i
-                break
-        hp_r = hp_r[j:]
+    def makeModWave(self, m1, m2, phic, tc, t, R):
+        hp_r = makeWave(m1, m2, phic, tc, t)
+        hp_r = hp_r + self.__boundaryp(R)
 
-        return hp_r
-
-
-
-
-
+    def makeOnlyMod(self, m1, m2, phic, tc, t, R):
+        self.__setVariables(m1, m2, phic, tc, t)
+        return self.__boundaryp(R)
 
 if __name__ == "__main__":
     mMaker = GRWaveMaker()
@@ -130,6 +152,7 @@ if __name__ == "__main__":
     start_time = time.time()
     hp_r = mMaker.makeWave(m1, m2, phic = 0, omega0 = pi * 10, tc = 0, t = times)
     print("--- %s seconds ---" % (time.time() - start_time))
+    print "\n"
     #print hp_r
 
 
