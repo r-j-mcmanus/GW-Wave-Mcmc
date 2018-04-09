@@ -16,18 +16,25 @@ class GRProperties:
     m2 = 29.8                            
     phic = 0.0
     tc = 0.0
-    signalStart = -0.1
-    signalSamples = 1000
-    signalTimestep = 0.01
-    std = 1.0
+    
+    signalFq = 1000.0
+
+    signalTimestep = 1/signalFq
+    signalStart = -signalTimestep
+    signalSamples = int(0.2 / signalTimestep)
+
+    std = 0.01
+    #ligo samples at 16384 hz. online data downsamples to 4096 hz
+    # "In their most sensative band, 100-300Hz, ..."
+    #Over 0.2 s, the sifnal increases in frequency and amplitude in about 8 cycles from 35 hz to 150 hz
 
 class main():
 
-    def __init__(self):
+    def __init__(self, Params):
         cwd = os.getcwd()
 
         self.nDim            = 4 #M1, M2, phi_c, t_c
-        self.nWalkers        = 50
+        self.nWalkers        = 100
         self.burnIn          = 100
         self.nSteps          = 1000
 
@@ -41,10 +48,13 @@ class main():
 
         self.waveMaker = GRWaveMaker()
 
+        self.setParams(Params)
+        self.__setGandC0("si")
+
         self.figFolderName = "plots"
         if not os.path.exists(cwd + "/" + self.figFolderName):
             os.makedirs(cwd + "/" + self.figFolderName)
-        self.figFolderName = "plots/nWalkers_%d_nSteps_%d" % (self.nWalkers, self.nSteps)
+        self.figFolderName = "plots/" + Params + "_nWalkers_%d_nSteps_%d" % (self.nWalkers, self.nSteps)
         if not os.path.exists(cwd + "/" + self.figFolderName):
             os.makedirs(cwd + "/" + self.figFolderName)
 
@@ -52,7 +62,9 @@ class main():
         if not os.path.exists(cwd + "/" + self.dataFolderName):
             os.makedirs(cwd + "/" + self.dataFolderName)
 
-    def __setParams(self, Params):
+    
+
+    def setParams(self, Params):
         if Params == "WW":
             className = WWProperties
             self.params = Params
@@ -91,10 +103,7 @@ class main():
                 print "---Error: GandC0", GandC0, "not a valid option"
                 raise ValueError, "Params not found"
 
-    def plotWaveandFrequencyRange(self, Params = "WW", GandC0 = "si"):
-        
-        self.__setParams(Params)
-        self.__setGandC0(GandC0)
+    def plotWaveandFrequencyRange(self):
 
         times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
         signal = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, times)   
@@ -116,10 +125,7 @@ class main():
 
         print "frequency hight", frequency[0], "frequency low", frequency[-1], "\n"
 
-    def emcee(self, Params = "WW", GandC0 = "si"):
-
-        self.__setParams(Params)
-        self.__setGandC0(GandC0)
+    def emcee(self):
 
         self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
         wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
@@ -152,12 +158,13 @@ class main():
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
         sampler.run_mcmc(pos, self.nSteps)
         
-        #chain = sampler.chain[:, self.burnIn:, :].reshape((-1,self.nDim))
-        chain = sampler.flatchain      
-        #print chain
+
+        #if we want to butn in 
+        chain = sampler.chain[:, self.burnIn:, :].reshape((-1,self.nDim))
+        #chain = sampler.flatchain
 
         self.__makeWalkerPlot(sampler)
-        self.__makeCornerPlot(sampler.chain.reshape((-1,self.nDim)))
+        self.__makeCornerPlot(chain.reshape((-1,self.nDim)))
         self.__makeMeanTrueSignalPlot(self.times, chain, wave, self.signal)
 
 
@@ -246,8 +253,11 @@ class main():
         plt.clf()
         plt.plot(times, signal, label="Signal")
         plt.plot(times, wave, label="True")
-        meanParams = [np.mean(chain.T[i]) for i in range(self.nDim)] 
+        print "finding mean params"
+        meanParams = [np.mean(chain.T[i]) for i in range(self.nDim)]
+        print "\nmeanParams",  meanParams, "\n"
         plt.plot(times, self.waveMaker.makeWave(*meanParams, t = times), label="Emcee mean value")
+        print "finding mode params"
         modeParams = [stats.mode(chain.T[i]) for i in range(self.nDim)]
         modeParams = [modeParams[0][0],modeParams[1][0],modeParams[2][0],modeParams[3][0]]
         print "\nmodeParams",  modeParams, "\n"
@@ -256,14 +266,9 @@ class main():
         plt.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f MeanModeTrueSignalPlot.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')   
 
     def _makeTestWave(self, times, m1 = 10, m2 = 1.4, phic = 0.0, tc = 0.0):
-        self.__setParams("WW")
-        self.__setGandC0("si")
-
         return myClass.waveMaker.makeWave(m1, m2, phic, tc, times )
 
     def _makeOnlyMod(self, times, m1 = 10, m2 = 1.4, phic = 0.0, tc = 0.0, R = 1):
-        self.__setParams("WW")
-        self.__setGandC0("si")
 
         signal = myClass.waveMaker.makeOnlyMod(m1, m2, phic, tc, times, R )
 
@@ -290,9 +295,7 @@ class WWProperties:
 if __name__ == "__main__":
     try:
         start_time = time.time()
-        myClass = main()
-        #myClass.plotWaveandFrequencyRange("WW", "si")
-        #myClass.plotWaveandFrequencyRange("WW", "natural")
+        myClass = main("GR")
         myClass.emcee()
 
         #m1 = 1.08e+01
