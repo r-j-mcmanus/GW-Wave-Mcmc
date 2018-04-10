@@ -23,10 +23,21 @@ class GRProperties:
     signalStart = -signalTimestep
     signalSamples = int(0.2 / signalTimestep)
 
-    std = 0.01
-    #ligo samples at 16384 hz. online data downsamples to 4096 hz
+    std = 2.0   #ligo samples at 16384 hz. online data downsamples to 4096 hz
     # "In their most sensative band, 100-300Hz, ..."
     #Over 0.2 s, the sifnal increases in frequency and amplitude in about 8 cycles from 35 hz to 150 hz
+
+class WWProperties:
+    # will recover WW fig 8
+    m1 = 10
+    m2 = 1.4                         
+    phic = 0.0
+    tc = 0.0
+    signalStart = -0.0045
+    signalSamples = 500
+    signalTimestep = 0.00025
+    std = 0.1
+
 
 class main():
 
@@ -80,6 +91,7 @@ class main():
         self.m2 = className.m2
         self.phic = className.phic
         self.tc = className.tc
+        self.alpha = 1
         self.signalStart     = className.signalStart
         self.signalSamples   = className.signalSamples
         self.signalTimestep  = className.signalTimestep    
@@ -125,13 +137,24 @@ class main():
 
         print "frequency hight", frequency[0], "frequency low", frequency[-1], "\n"
 
-    def emcee(self):
+    def emcee(self, mod = False):
+
 
         self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
         wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
         self.signal = np.random.normal(wave, self.std)
 
-        pos = [[self.m1, self.m2, self.phic, self.tc] + np.random.randn(self.nDim) * 0.0001 for i in range(self.nWalkers)] #the initial positions for the walkers
+
+        self.waveMaker.setMod(mod)
+
+        if mod == False:
+            self.nDim = 4
+            self.__lnPrior = self.__lnPriorGR
+            pos = [[self.m1, self.m2, self.phic, self.tc] + np.random.randn(self.nDim) * 0.0001 for i in range(self.nWalkers)] #the initial positions for the walkers
+        else:
+            self.nDim = 5
+            self.__lnPrior = self.__lnPriorMod
+            pos = [[self.m1, self.m2, self.phic, self.tc, self.alpha] + np.random.randn(self.nDim) * 0.0001 for i in range(self.nWalkers)] #the initial positions for the walkers
 
         for params in pos:
             if params[0] < 0:
@@ -155,11 +178,17 @@ class main():
             if params[3] > 10:
                 params[3] = 10
 
+            if mod == True:
+                if params[4] < 0:
+                    params[4] = 0
+                if params[4] > 1:
+                    params[4] = 1
+
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
         sampler.run_mcmc(pos, self.nSteps)
         
 
-        #if we want to butn in 
+        #if we want to burn in 
         chain = sampler.chain[:, self.burnIn:, :].reshape((-1,self.nDim))
         #chain = sampler.flatchain
 
@@ -169,68 +198,44 @@ class main():
 
 
     def __lnProb(self, theta):
-        m1, m2, phic, tc = theta
-        lp = self.__lnPrior(m1, m2, phic, tc)
+        #m1, m2, phic, tc (,alpha) = theta
+        lp = self.__lnPrior(*theta)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self.__lnLike(m1, m2, phic, tc)
+        return lp + self.__lnLike(theta)
 
-    def __lnPrior(self, m1, m2, phic, tc):
+    def __lnPriorMod(self, m1, m2, phic, tc, alpha):
+
+        if 0 < m1 < 40 and 0 < m2 < 40 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0 and 0 < alpha < 1:
+            return 0.0
+        return -np.inf
+
+    def __lnPriorGR(self, m1, m2, phic, tc):
+
         if 0 < m1 < 40 and 0 < m2 < 40 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0:
             return 0.0
         return -np.inf
 
-    def _testLnPrior(self):
-        print "m1 = 10, m2 = 10, phic = np.pi, tc = 2"
-        print "__lnPrior", __lnPrior(10,10,np.pi, 2)
-
-        print "m1 = -10, m2 = 10, phic = np.pi, tc = 2"
-        print "__lnPrior", __lnPrior(-10,10,np.pi, 2)
-
-        print "m1 = 10, m2 = -10, phic = np.pi, tc = 2"
-        print "__lnPrior", __lnPrior(10,-10,np.pi, 2)
-
-        print "m1 = 10, m2 = 10, phic = -np.pi, tc = 2"
-        print "__lnPrior", __lnPrior(10,10,-np.pi, 2)
-
-        print "m1 = 10, m2 = 10, phic = np.pi, tc = -2"
-        print "__lnPrior", __lnPrior(10,10,np.pi, -2)
-
-    def __lnLike(self, m1, m2, phic, tc):
-        wave = self.waveMaker.makeWave(m1, m2, phic, tc, self.times)
+    def __lnLike(self, theta):
+        wave = self.waveMaker.makeWave(*theta, t = self.times)
         temp = - 0.5 * len(wave) * np.log( 2 * np.pi * self.var ) - 0.5 *  self.invVar * np.sum( (wave - self.signal[(len(self.signal) - len(wave)):])**2 ) 
         return  temp
-
-    def _testLnLike(self):
-
-        times = -np.arange(WWProperties.signalSamples) * WWProperties.signalTimestep + WWProperties.signalStart
-        wave = self._makeTestWave(times)
-        signal = np.random.normal(wave, WWProperties.std)
-        print "liklyhood for wave and wave" 
-        #temp = - 0.5 * np.sum( (wave - wave[(len(wave) - len(wave)):])**2 ) / WWProperties.std**2
-        #print "- 0.5 * np.sum( (wave - wave[(len(wave) - len(wave)):])**2 ) / WWProperties.std**2", temp
-        #temp = - 0.5 * len(wave) * np.log( 2 * np.pi * WWProperties.std**2 )
-        #print "- 0.5 * len(wave) * np.log( 2 * np.pi * WWProperties.std**2 )", temp
-        temp = - 0.5 * len(wave) * np.log( 2 * np.pi * WWProperties.std**2 ) - 0.5 * np.sum( (wave - wave[(len(wave) - len(wave)):])**2 ) / WWProperties.std**2
-        print "liklyhood\n", temp
-        print "liklyhood for wave and signal with std",  WWProperties.std
-        temp = - 0.5 * len(wave) * np.log( 2 * np.pi * WWProperties.std**2 ) - 0.5 * np.sum( (wave - signal[(len(signal) - len(wave)):])**2 ) / WWProperties.std**2
-        print temp
-
-        print "liklyhood for test wave and signal with std",  WWProperties.std
-        wave = self._makeTestWave(times, 9.827, 0.389, 0.986, 0.230)
-        temp = - 0.5 * len(wave) * np.log( 2 * np.pi * WWProperties.std**2 ) - 0.5 * np.sum( (wave - signal[(len(signal) - len(wave)):])**2 ) / WWProperties.std**2
-        print temp
-
 
     def __makeWalkerPlot(self, sampler):
         print "making walker plot"
         plt.clf()
 
         fig, axes = plt.subplots(self.nDim, figsize=(10, 7), sharex=True)
+        plt.suptitle("Walkers from MCMC for (%f M${}_\odot$, %f M${}_\odot$) non-spining system" % (self.m1, self.m2))
+        
         samples = sampler.chain #samples = [walkers, steps, dim]
 
-        labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"]
+        if self.waveMaker.mod == False:
+            labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"]
+        else:
+            labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", "alpha"]
+
+
         for i in range(self.nDim):
             ax = axes[i]
             ax.plot(samples[:, :, i].T, "k", alpha=0.3)
@@ -240,12 +245,17 @@ class main():
 
         axes[-1].set_xlabel("step number");
 
-        fig.tight_layout(h_pad=0.0)
-        fig.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f walker.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
+        #fig.tight_layout()
+        fig.savefig(self.figFolderName + "/" + self.params + " " + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f walker.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
 
     def __makeCornerPlot(self, samples):
         print "making corner plot"
-        fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"], truths=[self.m1, self.m2, self.phic, self.tc], verbose = True)
+
+        if self.waveMaker.mod == False:
+            fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"], truths=[self.m1, self.m2, self.phic, self.tc], verbose = True)
+        else:
+            fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", "alpha"], truths=[self.m1, self.m2, self.phic, self.tc, 1], verbose = True)
+
         fig.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
 
     def __makeMeanTrueSignalPlot(self, times, chain, wave, signal):
@@ -254,16 +264,20 @@ class main():
         plt.plot(times, signal, label="Signal")
         plt.plot(times, wave, label="True")
         print "finding mean params"
-        meanParams = [np.mean(chain.T[i]) for i in range(self.nDim)]
+        meanParams = [np.mean(param) for param in chain.T]
         print "\nmeanParams",  meanParams, "\n"
         plt.plot(times, self.waveMaker.makeWave(*meanParams, t = times), label="Emcee mean value")
         print "finding mode params"
-        modeParams = [stats.mode(chain.T[i]) for i in range(self.nDim)]
-        modeParams = [modeParams[0][0],modeParams[1][0],modeParams[2][0],modeParams[3][0]]
+        modeParams = [stats.mode(param) for param in chain.T]
+        modeParams = [param[0] for param in modeParams ]
         print "\nmodeParams",  modeParams, "\n"
         plt.plot(times, self.waveMaker.makeWave(*modeParams, t = times), label="Emcee mode value")
         plt.legend(loc = "best")
+        plt.title("Waveform for (%f M${}_\odot$, %f M${}_\odot$) non-spining system" % (self.m1, self.m2))
+        plt.xlabel('Time (s)')
+        plt.ylabel('$R h_+$')
         plt.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f MeanModeTrueSignalPlot.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')   
+
 
     def _makeTestWave(self, times, m1 = 10, m2 = 1.4, phic = 0.0, tc = 0.0):
         return myClass.waveMaker.makeWave(m1, m2, phic, tc, times )
@@ -280,41 +294,18 @@ class main():
         
         plt.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f Mod Wave.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep))   
 
-class WWProperties:
-    #Do Not Change!!
-    m1 = 10
-    m2 = 1.4                         
-    phic = 0.0
-    tc = 0.0
-    signalStart = -0.0045
-    signalSamples = 500
-    signalTimestep = 0.00025
-    std = 0.1
+
 
 
 if __name__ == "__main__":
-    try:
+    #try:
         start_time = time.time()
-        myClass = main("GR")
-        myClass.emcee()
-
-        #m1 = 1.08e+01
-        #m2 = 1.98e-5
-        #phic = 4.06e-01
-        #tc = 1.87
-        #sampleTimes = -np.arange(50) * WWProperties.signalTimestep + WWProperties.signalStart
-
-        #print "\ntestwave", m1, m2, phic, tc
-        #myClass._makeTestWave(m1, m2, phic, tc, sampleTimes)
-
-        #myClass._testLnLike()
-
-        #myClass._makeOnlyMod(sampleTimes)
-
+        myClass = main(Params = "GR")
+        myClass.emcee(mod = True)
         print("--- %s seconds ---" % (time.time() - start_time))
         print "\n"
-    except ValueError, message:
-        print "\nValueError", message
+    #except ValueError, message:
+    #    print "\nValueError", message
 
 
 
