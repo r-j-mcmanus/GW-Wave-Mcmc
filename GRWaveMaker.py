@@ -36,17 +36,16 @@ class GRWaveMaker:
         self.c0 = None
         self.Gm_c03 = None
         self.mod = False
+        self.R = None
         self.makeWave = self.__makeWave
 
     def setMod(self, value):
         if value == True:
             self.mod = True
             self.makeWave = self.__makeModWave
-            print "set makeWave to __makeModWave"
         else:
             self.mod = False
             self.makeWave = self.__makeWave
-            print "set makeWave to __makeWave"
 
     def __m(self):
         self.m = self.m1 + self.m2
@@ -98,6 +97,8 @@ class GRWaveMaker:
         return a*(b+c)    
 
     def __boundaryc(self, R):
+        # for R = 1, abs(val) approx 10-5 - 10-3
+        # for R = 100, max approx 1
         return 24.0 / 5.0 * self.eta * R * ( 3 * self.x**4 + ( 25 - self.eta ) * self.x**5 )* c * sin( 2 * self.phi ) 
          
 
@@ -117,9 +118,10 @@ class GRWaveMaker:
         return hp_r
 
     def __makeModWave(self, m1, m2, phic, tc, alpha, t):
-        R = 1
         hp_r = self.__makeWave(m1, m2, phic, tc, t)
-        hp_r = hp_r + (1 - alpha) * self.__boundaryp(R)
+        #temp = self.__boundaryp(self.R)
+        #print max(temp)
+        hp_r = hp_r + (1 - alpha) * self.__boundaryp(self.R)
         return hp_r
 
     def __setVariables(self, m1, m2, phic, tc, t):

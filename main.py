@@ -10,6 +10,10 @@ import corner
 from GRWaveMaker import GRWaveMaker
 from scipy import stats
 
+class mcmcParams:
+    nWalkers = 100
+    burnIn = 500
+    nSteps = 3000
 
 class GRProperties:
     m1 = 35.4
@@ -23,7 +27,8 @@ class GRProperties:
     signalStart = -signalTimestep
     signalSamples = int(0.2 / signalTimestep)
 
-    std = 2.0   #ligo samples at 16384 hz. online data downsamples to 4096 hz
+    std = 1   
+    #ligo samples at 16384 hz. online data downsamples to 4096 hz
     # "In their most sensative band, 100-300Hz, ..."
     #Over 0.2 s, the sifnal increases in frequency and amplitude in about 8 cycles from 35 hz to 150 hz
 
@@ -44,10 +49,9 @@ class main():
     def __init__(self, Params):
         cwd = os.getcwd()
 
-        self.nDim            = 4 #M1, M2, phi_c, t_c
-        self.nWalkers        = 100
-        self.burnIn          = 100
-        self.nSteps          = 1000
+        self.nWalkers        = mcmcParams.nWalkers
+        self.burnIn          = mcmcParams.burnIn
+        self.nSteps          = mcmcParams.nSteps
 
         self.m1 = 35.4
         self.m2 = 29.8
@@ -59,15 +63,13 @@ class main():
 
         self.waveMaker = GRWaveMaker()
 
+        self.Params = Params
         self.setParams(Params)
         self.__setGandC0("si")
 
-        self.figFolderName = "plots"
-        if not os.path.exists(cwd + "/" + self.figFolderName):
-            os.makedirs(cwd + "/" + self.figFolderName)
-        self.figFolderName = "plots/" + Params + "_nWalkers_%d_nSteps_%d" % (self.nWalkers, self.nSteps)
-        if not os.path.exists(cwd + "/" + self.figFolderName):
-            os.makedirs(cwd + "/" + self.figFolderName)
+        self.baseFigFolderName = "plots"
+        if not os.path.exists(cwd + "/" + self.baseFigFolderName):
+            os.makedirs(cwd + "/" + self.baseFigFolderName)
 
         self.dataFolderName = "data"
         if not os.path.exists(cwd + "/" + self.dataFolderName):
@@ -84,14 +86,14 @@ class main():
                 className = GRProperties
                 self.params = Params
             else:
-                print "---Error: Params", Params, "not a valid option"
+                print ("---Error: Params", Params, "not a valid option")
                 raise ValueError, "Params not found"
 
         self.m1 = className.m1
         self.m2 = className.m2
         self.phic = className.phic
         self.tc = className.tc
-        self.alpha = 1
+        self.alpha = 0.5
         self.signalStart     = className.signalStart
         self.signalSamples   = className.signalSamples
         self.signalTimestep  = className.signalTimestep    
@@ -112,7 +114,7 @@ class main():
                 self.waveMaker.Gm_c03 = 4.925 * 10**(-6)
                 self.units = GandC0
             else:
-                print "---Error: GandC0", GandC0, "not a valid option"
+                print ("---Error: GandC0", GandC0, "not a valid option")
                 raise ValueError, "Params not found"
 
     def plotWaveandFrequencyRange(self):
@@ -135,12 +137,30 @@ class main():
         plt.savefig(self.figFolderName + "/" + Params + " " + GandC0 + " units signal signalStart %f signalSamples %d signalTimestep %f (WW fig 8).pdf" % (self.signalStart, self.signalSamples, self.signalTimestep), bbox_inches='tight')
         plt.cla()
 
-        print "frequency hight", frequency[0], "frequency low", frequency[-1], "\n"
+        print ("frequency hight", frequency[0], "frequency low", frequency[-1], "\n")
 
-    def emcee(self, mod = False):
+    def emcee(self, mod = False, R = 1):
+        
+        cwd = os.getcwd()
+
+        if mod == False:
+            self.figFolderName = self.baseFigFolderName + "/gr_wave_mcmc"
+            if not os.path.exists(cwd + "/" + self.figFolderName):
+                os.makedirs(cwd + "/" + self.figFolderName)
+            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d" % (self.nWalkers, self.nSteps, self.burnIn)
+            if not os.path.exists(cwd + "/" + self.figFolderName):
+                os.makedirs(cwd + "/" + self.figFolderName)
+        else:
+            self.figFolderName = self.baseFigFolderName +  "/mod_wave_mcmc"
+            if not os.path.exists(cwd + "/" + self.figFolderName):
+                os.makedirs(cwd + "/" + self.figFolderName)
+            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d_R_%d" % (self.nWalkers, self.nSteps, self.burnIn, R)
+            if not os.path.exists(cwd + "/" + self.figFolderName):
+                os.makedirs(cwd + "/" + self.figFolderName)
 
 
         self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
+        self.waveMaker.setMod(False)
         wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
         self.signal = np.random.normal(wave, self.std)
 
@@ -154,6 +174,7 @@ class main():
         else:
             self.nDim = 5
             self.__lnPrior = self.__lnPriorMod
+            self.waveMaker.R = R        
             pos = [[self.m1, self.m2, self.phic, self.tc, self.alpha] + np.random.randn(self.nDim) * 0.0001 for i in range(self.nWalkers)] #the initial positions for the walkers
 
         for params in pos:
@@ -185,6 +206,7 @@ class main():
                     params[4] = 1
 
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
+        print ("Starting mcmc")
         sampler.run_mcmc(pos, self.nSteps)
         
 
@@ -192,9 +214,9 @@ class main():
         chain = sampler.chain[:, self.burnIn:, :].reshape((-1,self.nDim))
         #chain = sampler.flatchain
 
-        self.__makeWalkerPlot(sampler)
+        #self.__makeWalkerPlot(sampler)
         self.__makeCornerPlot(chain.reshape((-1,self.nDim)))
-        self.__makeMeanTrueSignalPlot(self.times, chain, wave, self.signal)
+        #self.__makeMeanTrueSignalPlot(self.times, chain, wave, self.signal)
 
 
     def __lnProb(self, theta):
@@ -206,13 +228,13 @@ class main():
 
     def __lnPriorMod(self, m1, m2, phic, tc, alpha):
 
-        if 0 < m1 < 40 and 0 < m2 < 40 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0 and 0 < alpha < 1:
+        if 0 < m1 < 40 and 0 < m2 < m1 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0 and 0 < alpha < 1:
             return 0.0
         return -np.inf
 
     def __lnPriorGR(self, m1, m2, phic, tc):
 
-        if 0 < m1 < 40 and 0 < m2 < 40 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0:
+        if 0 < m1 < 40 and 0 < m2 < m1 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0:
             return 0.0
         return -np.inf
 
@@ -222,7 +244,7 @@ class main():
         return  temp
 
     def __makeWalkerPlot(self, sampler):
-        print "making walker plot"
+        print ("making walker plot")
         plt.clf()
 
         fig, axes = plt.subplots(self.nDim, figsize=(10, 7), sharex=True)
@@ -239,7 +261,7 @@ class main():
         for i in range(self.nDim):
             ax = axes[i]
             ax.plot(samples[:, :, i].T, "k", alpha=0.3)
-            ax.set_xlim(0, len(samples[:, :, 0]))
+            ax.set_xlim(0, len(samples[:, :, 0].T))
             ax.set_ylabel(labels[i])
             ax.yaxis.set_label_coords(-0.1, 0.5)
 
@@ -249,29 +271,33 @@ class main():
         fig.savefig(self.figFolderName + "/" + self.params + " " + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f walker.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
 
     def __makeCornerPlot(self, samples):
-        print "making corner plot"
+        print ("making corner plot")
 
         if self.waveMaker.mod == False:
-            fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"], truths=[self.m1, self.m2, self.phic, self.tc], verbose = True)
+            fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"], truths=[self.m1, self.m2, self.phic, self.tc], show_titles = True)
         else:
-            fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", "alpha"], truths=[self.m1, self.m2, self.phic, self.tc, 1], verbose = True)
+            fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", "alpha"], truths=[self.m1, self.m2, self.phic, self.tc, 1], show_titles = True)
 
         fig.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
 
     def __makeMeanTrueSignalPlot(self, times, chain, wave, signal):
-        print "making mean true signal plot"
+        print ("making mean true signal plot")
         plt.clf()
         plt.plot(times, signal, label="Signal")
         plt.plot(times, wave, label="True")
-        print "finding mean params"
+        print ("finding mean params")
         meanParams = [np.mean(param) for param in chain.T]
-        print "\nmeanParams",  meanParams, "\n"
+        print ("meanParams",  meanParams)
         plt.plot(times, self.waveMaker.makeWave(*meanParams, t = times), label="Emcee mean value")
-        print "finding mode params"
-        modeParams = [stats.mode(param) for param in chain.T]
-        modeParams = [param[0] for param in modeParams ]
-        print "\nmodeParams",  modeParams, "\n"
-        plt.plot(times, self.waveMaker.makeWave(*modeParams, t = times), label="Emcee mode value")
+        print ("finding mode params")
+
+        print "np.percentile(x, 50)", np.percentile(chain.T, 50)
+
+        #modeParams = [stats.mode(param) for param in chain.T]
+        #modeParams = [param[0] for param in modeParams ]
+        #print ("modeParams",  modeParams)
+
+        #plt.plot(times, self.waveMaker.makeWave(*modeParams, t = times), label="Emcee mode value")
         plt.legend(loc = "best")
         plt.title("Waveform for (%f M${}_\odot$, %f M${}_\odot$) non-spining system" % (self.m1, self.m2))
         plt.xlabel('Time (s)')
@@ -298,14 +324,16 @@ class main():
 
 
 if __name__ == "__main__":
-    #try:
-        start_time = time.time()
-        myClass = main(Params = "GR")
-        myClass.emcee(mod = True)
-        print("--- %s seconds ---" % (time.time() - start_time))
-        print "\n"
-    #except ValueError, message:
-    #    print "\nValueError", message
+    start_time = time.time()
+    myClass = main(Params = "GR") # Will us Gw15... properties
+    myClass.emcee() # will run GR mcmc
+    #myClass.emcee() # will run GR mcmc
+    #myClass.emcee(mod = True, R = 1000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 100) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 10) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 1) # will run mod mcmc
+    print("--- %s seconds ---" % (time.time() - start_time))
+    print("\n")
 
 
 
