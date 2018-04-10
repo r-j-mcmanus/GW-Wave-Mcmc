@@ -13,7 +13,7 @@ from scipy import stats
 class mcmcParams:
     nWalkers = 100
     burnIn = 500
-    nSteps = 3000
+    nSteps = 1500
 
 class GRProperties:
     m1 = 35.4
@@ -21,13 +21,13 @@ class GRProperties:
     phic = 0.0
     tc = 0.0
     
-    signalFq = 1500.0
+    signalFq = 300.0
 
     signalTimestep = 1/signalFq
     signalStart = -signalTimestep
     signalSamples = int(0.2 / signalTimestep)
 
-    std = 1   
+    std = 2.5 # needs to be a float
     #ligo samples at 16384 hz. online data downsamples to 4096 hz
     # "In their most sensative band, 100-300Hz, ..."
     #Over 0.2 s, the sifnal increases in frequency and amplitude in about 8 cycles from 35 hz to 150 hz
@@ -41,7 +41,7 @@ class WWProperties:
     signalStart = -0.0045
     signalSamples = 500
     signalTimestep = 0.00025
-    std = 0.1
+    std = 1
 
 
 class main():
@@ -325,7 +325,7 @@ class main():
 
 if __name__ == "__main__":
     start_time = time.time()
-    myClass = main(Params = "GR") # Will us Gw15... properties
+    myClass = main(Params = "GR") # Will us Gw150914 properties
     myClass.emcee() # will run GR mcmc
     #myClass.emcee() # will run GR mcmc
     #myClass.emcee(mod = True, R = 1000) # will run mod mcmc
