@@ -10,10 +10,13 @@ import corner
 from GRWaveMaker import GRWaveMaker
 from scipy import stats
 
+counter = 0
+lnlikeArray = []
+
 class mcmcParams:
     nWalkers = 100
-    burnIn = 500
-    nSteps = 1500
+    burnIn = 1000
+    nSteps = 2000
 
 class GRProperties:
     m1 = 35.4
@@ -27,7 +30,7 @@ class GRProperties:
     signalStart = -signalTimestep
     signalSamples = int(0.2 / signalTimestep)
 
-    std = 2.5 # needs to be a float
+    std = 2.0   # needs to be a float
     #ligo samples at 16384 hz. online data downsamples to 4096 hz
     # "In their most sensative band, 100-300Hz, ..."
     #Over 0.2 s, the sifnal increases in frequency and amplitude in about 8 cycles from 35 hz to 150 hz
@@ -41,7 +44,7 @@ class WWProperties:
     signalStart = -0.0045
     signalSamples = 500
     signalTimestep = 0.00025
-    std = 1
+    std = 1.0
 
 
 class main():
@@ -52,14 +55,6 @@ class main():
         self.nWalkers        = mcmcParams.nWalkers
         self.burnIn          = mcmcParams.burnIn
         self.nSteps          = mcmcParams.nSteps
-
-        self.m1 = 35.4
-        self.m2 = 29.8
-        self.phic = 0
-        self.omega0 = np.pi * 10
-        self.tc = 0
-
-        self.ln2pi = np.log(2*np.pi)
 
         self.waveMaker = GRWaveMaker()
 
@@ -79,25 +74,25 @@ class main():
 
     def setParams(self, Params):
         if Params == "WW":
-            className = WWProperties
+            self.Properties = WWProperties
             self.params = Params
         else:
             if Params == "GR":        
-                className = GRProperties
+                self.Properties = GRProperties
                 self.params = Params
             else:
                 print ("---Error: Params", Params, "not a valid option")
                 raise ValueError, "Params not found"
 
-        self.m1 = className.m1
-        self.m2 = className.m2
-        self.phic = className.phic
-        self.tc = className.tc
-        self.alpha = 0.5
-        self.signalStart     = className.signalStart
-        self.signalSamples   = className.signalSamples
-        self.signalTimestep  = className.signalTimestep    
-        self.std = className.std
+        self.m1 = self.Properties.m1
+        self.m2 = self.Properties.m2
+        self.phic = self.Properties.phic
+        self.tc = self.Properties.tc
+        self.alpha = 0.99
+        self.signalStart     = self.Properties.signalStart
+        self.signalSamples   = self.Properties.signalSamples
+        self.signalTimestep  = self.Properties.signalTimestep    
+        self.std = float(self.Properties.std)
         self.var = self.std**2   
         self.invVar = 1 / self.var 
 
@@ -117,47 +112,27 @@ class main():
                 print ("---Error: GandC0", GandC0, "not a valid option")
                 raise ValueError, "Params not found"
 
-    def plotWaveandFrequencyRange(self):
-
-        times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
-        signal = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, times)   
-        frequency = self.waveMaker.omega / (2 * np.pi)
-
-        plt.figure(1)
-        plt.subplot(211)
-        plt.title("Inspiral for (10 M${}_\odot$, 1.4M${}_\odot$) non-spining system (WW fig 8)")
-        plt.plot(times, frequency)
-        plt.ylabel('Orbital Frequency')
-
-        plt.subplot(212)
-        plt.plot(times, signal)
-        plt.xlabel('Time (s)')
-        plt.ylabel('$R h_+$')
-
-        plt.savefig(self.figFolderName + "/" + Params + " " + GandC0 + " units signal signalStart %f signalSamples %d signalTimestep %f (WW fig 8).pdf" % (self.signalStart, self.signalSamples, self.signalTimestep), bbox_inches='tight')
-        plt.cla()
-
-        print ("frequency hight", frequency[0], "frequency low", frequency[-1], "\n")
-
-    def emcee(self, mod = False, R = 1):
-        
+    def __makeFigFolders(self, mod, R):
         cwd = os.getcwd()
 
         if mod == False:
             self.figFolderName = self.baseFigFolderName + "/gr_wave_mcmc"
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
-            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d" % (self.nWalkers, self.nSteps, self.burnIn)
+            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn)
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
         else:
             self.figFolderName = self.baseFigFolderName +  "/mod_wave_mcmc"
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
-            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d_R_%d" % (self.nWalkers, self.nSteps, self.burnIn, R)
+            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d_R_%d" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn, R)
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
 
+    def emcee(self, mod = False, R = 1):
+
+        self.__makeFigFolders(mod, R)
 
         self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
         self.waveMaker.setMod(False)
@@ -206,7 +181,7 @@ class main():
                     params[4] = 1
 
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
-        print ("Starting mcmc")
+        print "Starting mcmc"
         sampler.run_mcmc(pos, self.nSteps)
         
 
@@ -216,35 +191,72 @@ class main():
 
         #self.__makeWalkerPlot(sampler)
         self.__makeCornerPlot(chain.reshape((-1,self.nDim)))
-        #self.__makeMeanTrueSignalPlot(self.times, chain, wave, self.signal)
+        self.__makeMeanTrueSignalPlot(self.times, chain, wave, self.signal)
 
+
+
+
+    """-------------Fns for mcmc stuff----------------"""
 
     def __lnProb(self, theta):
         #m1, m2, phic, tc (,alpha) = theta
         lp = self.__lnPrior(*theta)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self.__lnLike(theta)
+        lnlike = self.__lnLike(theta)
+
+        if np.isnan(lnlike):
+            print "----------Error: lnlike is nan------------"
+            print "lnlike", lnlike, 
+            print "lp", lp, "theta",  theta
+            print "wave\n", self.waveMaker.makeWave(*theta, t = self.times)
+            raise ValueError
+
+
+
+        return lp + lnlike
 
     def __lnPriorMod(self, m1, m2, phic, tc, alpha):
-
-        if 0 < m1 < 40 and 0 < m2 < m1 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0 and 0 < alpha < 1:
+        if 0 < m1 < 100 and 0 < m2 < m1 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0 and 0 <= alpha <= 1:
             return 0.0
         return -np.inf
 
     def __lnPriorGR(self, m1, m2, phic, tc):
-
-        if 0 < m1 < 40 and 0 < m2 < m1 and 0 <= phic < 2*np.pi and 0 <= tc < 10.0:
+        if 0 < m1 < 100 and 0 < m2 < m1 and 0 <= phic < 2*np.pi and -10 < tc < 10.0:
             return 0.0
         return -np.inf
 
     def __lnLike(self, theta):
         wave = self.waveMaker.makeWave(*theta, t = self.times)
+        wave2 = wave
+        nanEnd = len(wave)
+        for i in range(len(wave)):
+            if not np.isnan(wave[i]):
+                nanEnd = i
+                break
+        wave = wave[nanEnd:]
+
         temp = - 0.5 * len(wave) * np.log( 2 * np.pi * self.var ) - 0.5 *  self.invVar * np.sum( (wave - self.signal[(len(self.signal) - len(wave)):])**2 ) 
+
+        if np.isnan(temp):
+            print "-----error: lnLike returning a nan------"
+            print "temp", temp
+            print "nanEnd\n", nanEnd
+            print "wave\n", wave
+            print "wave2\n", wave2
+            print "self.signal[(len(self.signal) - len(wave)):]\n", self.signal[(len(self.signal) - len(wave)):]
+            print "- 0.5 * len(wave) * np.log( 2 * np.pi * self.var )",- 0.5 * len(wave) * np.log( 2 * np.pi * self.var )   
+            print "- 0.5 *  self.invVar * np.sum( (wave - self.signal[(len(self.signal) - len(wave)):])**2 )", - 0.5 *  self.invVar * np.sum( (wave - self.signal[(len(self.signal) - len(wave)):])**2 )         
+            raise ValueError
+
         return  temp
 
+
+
+    """------------Fns for ploting stuff-------------"""
+
     def __makeWalkerPlot(self, sampler):
-        print ("making walker plot")
+        print "making walker plot"
         plt.clf()
 
         fig, axes = plt.subplots(self.nDim, figsize=(10, 7), sharex=True)
@@ -257,7 +269,6 @@ class main():
         else:
             labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", "alpha"]
 
-
         for i in range(self.nDim):
             ax = axes[i]
             ax.plot(samples[:, :, i].T, "k", alpha=0.3)
@@ -267,7 +278,6 @@ class main():
 
         axes[-1].set_xlabel("step number");
 
-        #fig.tight_layout()
         fig.savefig(self.figFolderName + "/" + self.params + " " + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f walker.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
 
     def __makeCornerPlot(self, samples):
@@ -285,18 +295,11 @@ class main():
         plt.clf()
         plt.plot(times, signal, label="Signal")
         plt.plot(times, wave, label="True")
-        print ("finding mean params")
+
+        #print "np.percentile(x, 50)", np.percentile(chain.T, 50)
         meanParams = [np.mean(param) for param in chain.T]
-        print ("meanParams",  meanParams)
+
         plt.plot(times, self.waveMaker.makeWave(*meanParams, t = times), label="Emcee mean value")
-        print ("finding mode params")
-
-        print "np.percentile(x, 50)", np.percentile(chain.T, 50)
-
-        #modeParams = [stats.mode(param) for param in chain.T]
-        #modeParams = [param[0] for param in modeParams ]
-        #print ("modeParams",  modeParams)
-
         #plt.plot(times, self.waveMaker.makeWave(*modeParams, t = times), label="Emcee mode value")
         plt.legend(loc = "best")
         plt.title("Waveform for (%f M${}_\odot$, %f M${}_\odot$) non-spining system" % (self.m1, self.m2))
@@ -304,34 +307,44 @@ class main():
         plt.ylabel('$R h_+$')
         plt.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f MeanModeTrueSignalPlot.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')   
 
+    def plotWaveandFrequencyRange(self):
 
-    def _makeTestWave(self, times, m1 = 10, m2 = 1.4, phic = 0.0, tc = 0.0):
-        return myClass.waveMaker.makeWave(m1, m2, phic, tc, times )
+        times = -np.arange(WWProperties.signalSamples) * WWProperties.signalTimestep + WWProperties.signalStart
+        signal = self.waveMaker.makeWave(WWProperties.m1, WWProperties.m2, WWProperties.phic, WWProperties.tc, times)   
+        frequency = self.waveMaker.omega / (2 * np.pi)
 
-    def _makeOnlyMod(self, times, m1 = 10, m2 = 1.4, phic = 0.0, tc = 0.0, R = 1):
+        plt.figure(1)
+        plt.subplot(211)
+        plt.title("Inspiral for (10 M${}_\odot$, 1.4M${}_\odot$) non-spining system (WW fig 8)")
+        plt.plot(times, frequency)
+        plt.ylabel('Orbital Frequency')
 
-        signal = myClass.waveMaker.makeOnlyMod(m1, m2, phic, tc, times, R )
-
-        plt.clf()
+        plt.subplot(212)
         plt.plot(times, signal)
-        plt.title("Boundary contribution to inspiral for (%f M${}_\odot$, %f M${}_\odot$, R %f) non-spining system" % (m1, m2, R))
         plt.xlabel('Time (s)')
         plt.ylabel('$R h_+$')
-        
-        plt.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f Mod Wave.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep))   
 
+        plt.savefig(self.figFolderName + "/" + Params + " " + GandC0 + " units signal signalStart %f signalSamples %d signalTimestep %f (WW fig 8).pdf" % (WWProperties.signalStart, WWProperties.signalSamples, WWProperties.signalTimestep), bbox_inches='tight')
+        plt.cla()
+
+        print ("frequency hight", frequency[0], "frequency low", frequency[-1], "\n")
 
 
 
 if __name__ == "__main__":
     start_time = time.time()
     myClass = main(Params = "GR") # Will us Gw150914 properties
-    myClass.emcee() # will run GR mcmc
-    #myClass.emcee() # will run GR mcmc
-    #myClass.emcee(mod = True, R = 1000) # will run mod mcmc
-    #myClass.emcee(mod = True, R = 100) # will run mod mcmc
-    #myClass.emcee(mod = True, R = 10) # will run mod mcmc
-    #myClass.emcee(mod = True, R = 1) # will run mod mcmc
+    myClass.emcee(mod = False) # will run GR mcmc
+    myClass.emcee(mod = True, R = 1) # will run mod mcmc
+    myClass.emcee(mod = True, R = 10) # will run mod mcmc
+    myClass.emcee(mod = True, R = 100) # will run mod mcmc
+    myClass.emcee(mod = True, R = 1000) # will run mod mcmc
+    myClass.emcee(mod = True, R = 10000) # will run mod mcmc
+    myClass.emcee(mod = True, R = 100000) # will run mod mcmc
+    myClass.emcee(mod = True, R = 1000000) # will run mod mcmc
+    myClass.emcee(mod = True, R = 10000000) # will run mod mcmc
+    myClass.emcee(mod = True, R = 100000000) # will run mod mcmc
+    myClass.emcee(mod = True, R = 1000000000) # will run mod mcmc
     print("--- %s seconds ---" % (time.time() - start_time))
     print("\n")
 

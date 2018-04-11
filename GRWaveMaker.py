@@ -1,6 +1,7 @@
 
 from numpy import cos, sin , log, pi, arange, isnan, isfinite
 import time
+import sys
 
 
 i = pi / 2.
@@ -108,21 +109,17 @@ class GRWaveMaker:
 
         hp_r = 2 * self.c0 * self.Gm_c03 * self.m * self.eta * self.x * ( self.__Hp0() + self.x**(1/2.) * self.__Hp1_2() + self.x * self.__Hp1() + self.x**(3/2.) * self.__Hp3_2() + self.x**(2) * self.__Hp2() )        
 
-        j = len(hp_r)
-        for i in range(len(hp_r)):
-            if not isnan(hp_r[i]):
-                j = i
-                break
-        hp_r = hp_r[j:]
 
         return hp_r
 
     def __makeModWave(self, m1, m2, phic, tc, alpha, t):
         hp_r = self.__makeWave(m1, m2, phic, tc, t)
-        #temp = self.__boundaryp(self.R)
-        #print max(temp)
-        hp_r = hp_r + (1 - alpha) * self.__boundaryp(self.R)
-        return hp_r
+        hp_r_boundary = self.__boundaryp(self.R)
+
+        if len(hp_r) == 0:
+            print "wavelength 0 for ", m1, m2, phic, tc, alpha  
+      
+        return hp_r + (1 - alpha) * hp_r_boundary
 
     def __setVariables(self, m1, m2, phic, tc, t):
         self.m1 = m1
