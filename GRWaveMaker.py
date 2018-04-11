@@ -106,9 +106,7 @@ class GRWaveMaker:
     def __makeWave(self, m1, m2, phic, tc, t):
         #start_time = time.time()
         self.__setVariables(m1, m2, phic, tc, t)
-
         hp_r = 2 * self.c0 * self.Gm_c03 * self.m * self.eta * self.x * ( self.__Hp0() + self.x**(1/2.) * self.__Hp1_2() + self.x * self.__Hp1() + self.x**(3/2.) * self.__Hp3_2() + self.x**(2) * self.__Hp2() )        
-
 
         return hp_r
 

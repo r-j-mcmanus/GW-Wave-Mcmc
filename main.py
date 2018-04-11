@@ -49,7 +49,7 @@ class WWProperties:
 
 class main():
 
-    def __init__(self, Params):
+    def __init__(self, Params = "GR"):
         cwd = os.getcwd()
 
         self.nWalkers        = mcmcParams.nWalkers
@@ -341,6 +341,7 @@ if __name__ == "__main__":
     myClass.emcee(mod = True, R = 1000) # will run mod mcmc
     myClass.emcee(mod = True, R = 10000) # will run mod mcmc
     myClass.emcee(mod = True, R = 100000) # will run mod mcmc
+    #floating point erros plague the values below this
     myClass.emcee(mod = True, R = 1000000) # will run mod mcmc
     myClass.emcee(mod = True, R = 10000000) # will run mod mcmc
     myClass.emcee(mod = True, R = 100000000) # will run mod mcmc
