@@ -9,6 +9,9 @@ from matplotlib.ticker import MaxNLocator
 from matplotlib.colors import LinearSegmentedColormap, colorConverter
 from matplotlib.ticker import ScalarFormatter
 
+
+titleCounter = 0
+
 try:
     from scipy.ndimage import gaussian_filter
 except ImportError:
@@ -264,6 +267,7 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
         if show_titles:
             title = None
             if title_fmt is not None:
+                # title_fmt = ".2f" , will show 2 decimal places
                 # Compute the quantiles for the title. This might redo
                 # unneeded computation but who cares.
                 #q_16, q_50, q_84 = quantile(x, [0.16, 0.5, 0.84],
@@ -274,10 +278,29 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
                                             weights=weights)
                 q_m, q_p = q_50-q_05, q_95-q_50
 
-                # Format the quantile display.
-                fmt = "{{0:{0}}}".format(title_fmt).format
-                title = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
-                title = title.format(fmt(q_50), fmt(q_m), fmt(q_p))
+                print("q_50", q_50, "q_05", q_05, "q_95", q_95)
+
+                #counter to format titles correctly for time
+                global titleCounter
+                if titleCounter != 3:
+                    titleCounter += 1
+                    # Format the quantile display.
+                    fmt = "{{0:{0}}}".format(title_fmt).format
+                    title = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
+                    title = title.format(fmt(q_50), fmt(q_m), fmt(q_p))
+
+                else:
+                    titleCounter = 3
+                    title_fmt, temp_fmt = ".2e", title_fmt
+
+                    # Format the quantile display with sciantific notation
+                    fmt = "{{0:{0}}}".format(title_fmt).format
+                    title = r"${{{0}}}_{{-{1}}}^{{+{2}}}\times$"
+                    title = title.format(fmt(q_50)[:4], fmt(q_m)[:4], fmt(q_p)[:4])
+                    title = title + "$10^{{{0}}}$".format(fmt(q_50)[-3:])
+                    #rest counter and format
+                    title_fmt = temp_fmt
+                    titleCounter = 0
 
                 # Add in the column name if it's given.
                 if labels is not None:

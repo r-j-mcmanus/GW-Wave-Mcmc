@@ -4,6 +4,7 @@ np.random.seed(123)
 
 import emcee
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import time
 import os
 import corner
@@ -14,9 +15,12 @@ counter = 0
 lnlikeArray = []
 
 class mcmcParams:
-    nWalkers = 100
-    burnIn = 1000
-    nSteps = 2000
+    #nWalkers = 100
+    #burnIn = 1000
+    #nSteps = 2000
+    nWalkers = 20
+    burnIn = 50
+    nSteps = 200
 
 class GRProperties:
     m1 = 35.4
@@ -73,6 +77,14 @@ class main():
     
 
     def setParams(self, Params):
+        """
+        Will set the paramiters for the binary system from the two classes GRProperties or WWProperties.
+
+        Parameters
+        ----------
+        Params : string
+            Pass either "WW" for WWProperties or "GR" for GRProperties
+        """
         if Params == "WW":
             self.Properties = WWProperties
             self.params = Params
@@ -98,7 +110,17 @@ class main():
 
 
 
-    def __setGandC0(self, GandC0):
+    def __setGandC0(self, GandC0 = "si"):
+        """
+        Will set the units for the constants G and c0.
+        I would recomend no changing this.
+        The code curently runs in si
+
+        Parameters
+        ----------
+        GandC0 : string
+            Pass either "si" for si units or "natural" for natural units
+        """
         if GandC0 == "natural":
             self.waveMaker.c0 = 1
             self.waveMaker.Gm_c03 = 1
@@ -112,7 +134,19 @@ class main():
                 print ("---Error: GandC0", GandC0, "not a valid option")
                 raise ValueError, "Params not found"
 
-    def __makeFigFolders(self, mod, R):
+    def __makeFigFolders(self, mod, R = 1.0):
+        """
+        Will make the folders to store any data and plots in.
+
+        Parameters
+        ----------
+        mod : Bool
+            Whether or not we are perfomring mcmc with a modified wave.
+
+        R : float
+            The size of the screening radius expressed in the specified units, currently set to si.
+        """
+
         cwd = os.getcwd()
 
         if mod == False:
@@ -130,14 +164,29 @@ class main():
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
 
-    def emcee(self, mod = False, R = 1):
+    def emcee(self, mod = False, R = 1.0):
+        """
+        Will call emcee to find the best fit values for a gravitational wave from the signal made from 
+        the passed paramiters on initialisation of the class.
+
+        Will produce a corner plot of the mcmc output.
+
+        Parameters
+        ----------
+
+        mod : bool
+            whether or not we are comparing to a modified wave.
+
+        R : float
+            the size of the 
+        """
 
         self.__makeFigFolders(mod, R)
 
         self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
         self.waveMaker.setMod(False)
-        wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
-        self.signal = np.random.normal(wave, self.std)
+        self.wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
+        self.signal = np.random.normal(self.wave, self.std)
 
 
         self.waveMaker.setMod(mod)
@@ -184,14 +233,13 @@ class main():
         print "Starting mcmc"
         sampler.run_mcmc(pos, self.nSteps)
         
-
-        #if we want to burn in 
         chain = sampler.chain[:, self.burnIn:, :].reshape((-1,self.nDim))
-        #chain = sampler.flatchain
+        flatchain = chain.reshape((-1,self.nDim))
 
         #self.__makeWalkerPlot(sampler)
-        self.__makeCornerPlot(chain.reshape((-1,self.nDim)))
-        self.__makeMeanTrueSignalPlot(self.times, chain, wave, self.signal)
+        self.__makeCornerPlot(flatchain)
+
+        #self.__makeSignalPlot(flatchain)
 
 
 
@@ -210,9 +258,7 @@ class main():
             print "lnlike", lnlike, 
             print "lp", lp, "theta",  theta
             print "wave\n", self.waveMaker.makeWave(*theta, t = self.times)
-            raise ValueError
-
-
+            raise ValueError("lnlike is nan")
 
         return lp + lnlike
 
@@ -256,6 +302,16 @@ class main():
     """------------Fns for ploting stuff-------------"""
 
     def __makeWalkerPlot(self, sampler):
+        """
+        Makes a plot of the path the walkers traverse through the emcee run.
+
+        Parameters
+        ----------
+
+        sampler : emcee.EnsembleSampler
+            Pass the sampler after sampler.run_mcmc
+        """
+
         print "making walker plot"
         plt.clf()
 
@@ -280,34 +336,93 @@ class main():
 
         fig.savefig(self.figFolderName + "/" + self.params + " " + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f walker.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
 
-    def __makeCornerPlot(self, samples):
+    def __makeCornerPlot(self, flatchain):
+        """
+        Makes a corner plot from corner.py
+
+
+        Parameters
+        ----------
+        flatchain : array[nsamples, ndim]
+            Each row contains the values a parameter takes from an emcee run.
+        """
+
         print ("making corner plot")
 
+        K = self.nDim
+        factor = 2.0           # size of one side of one panel
+        lbdim = 0.5 * factor   # size of left/bottom margin
+        trdim = 0.2 * factor   # size of top/right margin
+        whspace = 0.05         # w/hspace size
+        plotdim = factor * K + factor * (K - 1.) * whspace
+        dim = lbdim + plotdim + trdim
+
+        #make fig the right size
+        fig, axes = plt.subplots(K, K, figsize=(dim, dim))
+
+
+
         if self.waveMaker.mod == False:
-            fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"], truths=[self.m1, self.m2, self.phic, self.tc], show_titles = True)
+            corner.corner(flatchain, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ / s"], truths=[self.m1, self.m2, self.phic, self.tc], show_titles = True, fig = fig)
         else:
-            fig = corner.corner(samples, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", "alpha"], truths=[self.m1, self.m2, self.phic, self.tc, 1], show_titles = True)
+            corner.corner(flatchain, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ / s", "alpha"], show_titles = True, fig = fig)
+
+        #https://matplotlib.org/users/gridspec.html
+        gs = gridspec.GridSpec(20, 20)
+        ax = fig.add_subplot(gs[0:4, -9:])
+
+        self.__makeSignalPlot(flatchain, axis = ax)
 
         fig.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
+        
 
-    def __makeMeanTrueSignalPlot(self, times, chain, wave, signal):
-        print ("making mean true signal plot")
-        plt.clf()
-        plt.plot(times, signal, label="Signal")
-        plt.plot(times, wave, label="True")
+    def __makeSignalPlot(self, flatchain, axis = plt):
 
-        #print "np.percentile(x, 50)", np.percentile(chain.T, 50)
-        meanParams = [np.mean(param) for param in chain.T]
+        axis.plot(self.times, self.signal, label="Signal")
+        if self.waveMaker.mod == False:
+            axis.plot(self.times, self.wave, label="GR wave")
 
-        plt.plot(times, self.waveMaker.makeWave(*meanParams, t = times), label="Emcee mean value")
-        #plt.plot(times, self.waveMaker.makeWave(*modeParams, t = times), label="Emcee mode value")
-        plt.legend(loc = "best")
-        plt.title("Waveform for (%f M${}_\odot$, %f M${}_\odot$) non-spining system" % (self.m1, self.m2))
-        plt.xlabel('Time (s)')
-        plt.ylabel('$R h_+$')
-        plt.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f MeanModeTrueSignalPlot.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')   
+        meanParams = [np.mean(param) for param in flatchain.T]
+        axis.plot(self.times, self.waveMaker.makeWave(*meanParams, t = self.times), label="Mean MCMC value")
+
+        mostLikelyValues = self.__findMostLikely(flatchain)
+        medianParams = [mostLikelyValue[0] for mostLikelyValue in mostLikelyValues]
+        axis.plot(self.times, self.waveMaker.makeWave(*medianParams, t = self.times), label="Median MCMC value")
+
+        axis.set_xlabel('Time (s)')
+        axis.set_ylabel('$R h_+$')
+
+        if axis == plt:
+            axis.legend(loc = "best")
+            axis.set_title("Waveform for (%.1f M${}_\odot$, %.1f M${}_\odot$) non-spining system" % (self.m1, self.m2))
+            plt.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f MeanModeTrueSignalPlot.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')   
+
+    
+    def __findMostLikely(self, flatchain):
+        """
+        Finds the most likly values for all paramiters and returns the list containing 
+        tuples of 50 percentile, pluss minus for 90% and plus minus for 68%.
+
+        Parameters
+        ----------
+            flatchain : array[nsamples, ndim]
+                Each row contains the values a parameter takes from an emcee run.
+        """
+        mostLikelyValues = []
+        for paramChain in flatchain.T:
+            q_05, q_16, q_50, q_84, q_95 = np.percentile(paramChain, np.array([0.05, 0.16, 0.5, 0.84, 0.95])*100)
+            q_m_90, q_p_90 = q_50-q_05, q_95-q_50
+            q_m_68, q_p_68 = q_50-q_16, q_84-q_50
+            mostLikelyValues.append((q_50, q_p_90, q_m_90, q_p_68, q_m_68))
+        return mostLikelyValues
+
+
 
     def plotWaveandFrequencyRange(self):
+        """
+        Reproduces figure 8 from WW.
+        """
+
 
         times = -np.arange(WWProperties.signalSamples) * WWProperties.signalTimestep + WWProperties.signalStart
         signal = self.waveMaker.makeWave(WWProperties.m1, WWProperties.m2, WWProperties.phic, WWProperties.tc, times)   
@@ -335,17 +450,17 @@ if __name__ == "__main__":
     start_time = time.time()
     myClass = main(Params = "GR") # Will us Gw150914 properties
     myClass.emcee(mod = False) # will run GR mcmc
-    myClass.emcee(mod = True, R = 1) # will run mod mcmc
-    myClass.emcee(mod = True, R = 10) # will run mod mcmc
-    myClass.emcee(mod = True, R = 100) # will run mod mcmc
-    myClass.emcee(mod = True, R = 1000) # will run mod mcmc
-    myClass.emcee(mod = True, R = 10000) # will run mod mcmc
-    myClass.emcee(mod = True, R = 100000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 1) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 10) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 100) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 1000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 10000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 100000) # will run mod mcmc
     #floating point erros plague the values below this
-    myClass.emcee(mod = True, R = 1000000) # will run mod mcmc
-    myClass.emcee(mod = True, R = 10000000) # will run mod mcmc
-    myClass.emcee(mod = True, R = 100000000) # will run mod mcmc
-    myClass.emcee(mod = True, R = 1000000000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 1000000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 10000000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 100000000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 1000000000) # will run mod mcmc
     print("--- %s seconds ---" % (time.time() - start_time))
     print("\n")
 
