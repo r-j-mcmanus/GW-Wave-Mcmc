@@ -147,7 +147,7 @@ class main():
                 print ("---Error: GandC0", GandC0, "not a valid option")
                 raise ValueError, "Params not found"
 
-    def __makeFigFolders(self, mod, R = 1.0):
+    def __makeFigFolders(self):
         """
         Will make the folders to store any data and plots in.
 
@@ -162,24 +162,37 @@ class main():
 
         cwd = os.getcwd()
 
-        if mod == False:
+        if self.mcmcTemplate == "GR":
             self.figFolderName = self.baseFigFolderName + "/gr_wave_mcmc"
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
             self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn)
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
-        else:
+            return
+
+        if self.mcmcTemplate == "Mod fixed R":
             self.figFolderName = self.baseFigFolderName +  "/mod_wave_mcmc"
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
             self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d_R_%d" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn, R)
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
+            return
 
-    def __WalkerInitalPositions(self, mod, R):
+        if self.mcmcTemplate == "Mod full":
+            self.figFolderName = self.baseFigFolderName +  "/mod_wave_full_mcmc"
+            if not os.path.exists(cwd + "/" + self.figFolderName):
+                os.makedirs(cwd + "/" + self.figFolderName)
+            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d_R_%d" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn, R)
+            if not os.path.exists(cwd + "/" + self.figFolderName):
+                os.makedirs(cwd + "/" + self.figFolderName)
+            return 
+
+    def __WalkerInitalPositions(self):
         """
         Will return an array of initial conditions for the paramiters of the wave.
+        Sets nDim and __lnPrior
 
         Parameters
         ----------
@@ -189,40 +202,53 @@ class main():
             the screening radius
         """
 
-        if mod == False:
+        if self.mcmcTemplate == "GR":
             self.nDim = 4
             self.__lnPrior = self.__lnPriorGR
             pos = [[self.m1, self.m2, self.phic, self.tc] + np.random.randn(self.nDim) * 0.0001 for i in range(self.nWalkers)] #the initial positions for the walkers
-        else:
+
+        if self.mcmcTemplate == "Mod fixed R":
             self.nDim = 5
             self.__lnPrior = self.__lnPriorMod
             self.waveMaker.R = R        
             pos = [[self.m1, self.m2, self.phic, self.tc, self.alpha] + np.random.randn(self.nDim) * 0.0001 for i in range(self.nWalkers)] #the initial positions for the walkers
 
-        for params in pos:
-            params[0] = -params[0] if params[0] < 0 else params[0]
+        if self.mcmcTemplate == "Mod full":
+            self.nDim = 6
+            self.__lnPrior = self.__lnPriorModFull      
+            pos = [[self.m1, self.m2, self.phic, self.tc, self.alpha, 100] + np.random.randn(self.nDim) * 0.0001 for i in range(self.nWalkers)] #the initial positions for the walkers
 
-            params[1] = -params[1] if params[1] < 0 else params[1]
+
+        for po in pos:
+            po[0] = -po[0] if po[0] < 0 else po[0]
+
+            po[1] = -po[1] if po[1] < 0 else po[1]
             #m2<m1
-            params[1] = params[0] if params[1] > params[0] else params[1]
+            po[1] = po[0] if po[1] > po[0] else po[1]
 
-            params[2] = 0 if params[2] < 0  else params[2]
-            params[2] = 2*np.pi if params[2] >  2*np.pi else params[2]
+            po[2] = 0 if po[2] < 0  else po[2]
+            po[2] = 2*np.pi if po[2] >  2*np.pi else po[2]
 
-            #params[2] = -np.pi if params[2] < -np.pi  else params[2]
-            #params[2] = np.pi if params[2] >  np.pi else params[2]
+            #po[2] = -np.pi if po[2] < -np.pi  else po[2]
+            #po[2] = np.pi if po[2] >  np.pi else po[2]
 
-            params[3] = -10 if params[3] < -10 else params[3]
-            params[3] = 10 if params[3] > 10 else params[3]
+            po[3] = -10 if po[3] < -10 else po[3]
+            po[3] = 10 if po[3] > 10 else po[3]
 
-            if mod == True:
-                params[4] = 0 if params[4] < 0 else params[4]
-                params[4] = 1 if params[4] > 1 else params[4]
+            if self.mcmcTemplate == "Mod fixed R":
+                po[4] = 0 if po[4] < 0 else po[4]
+                po[4] = 1 if po[4] > 1 else po[4]
+
+            if self.mcmcTemplate == "Mod full":
+                po[4] = 0 if po[4] < 0 else po[4]
+                po[4] = 1 if po[4] > 1 else po[4]
+
+                po[5] = 0 if po[5] < 0 else po[5]
 
         return pos
 
 
-    def emcee(self, mod = False, R = 1.0):
+    def emcee(self, mcmcTemplate = False, R = None):
         """
         Will call emcee to find the best fit values for a gravitational wave from the signal made from 
         the passed paramiters on initialisation of the class.
@@ -232,23 +258,35 @@ class main():
         Parameters
         ----------
 
-        mod : bool
-            whether or not we are comparing to a modified wave.
+        mcmcTemplate : string
+            Accepts either "GR" for comparison to GR template,
+                           "Mod fixed R" for comparison to mod template with fixed R. Uses the passed R value
+                           "Mod full" for comparison to mod template with R a paramiter.
 
         R : float
             the size of the 
         """
 
-        self.__makeFigFolders(mod, R)
+        #check function paramiters
+        if mcmcTemplate not in ("Mod fixed R", "GR", "Mod full"):
+            raise ValueError("Invalid mcmcTemplate paramiter,", mcmcTemplate,", passed to emcee call.")
+        if mcmcTemplate == "Mod fixed R" and R == None:
+            raise ValueError("No value for R passed for fixed R mcmc run.")
+
+        self.mcmcTemplate = mcmcTemplate
+        self.R = R
+
+        self.__makeFigFolders()
 
         self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
         self.waveMaker.setMod(False)
         self.wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
         self.signal = np.random.normal(self.wave, self.std)
 
-        self.waveMaker.setMod(mod)
+        if self.mcmcTemplate in ("Mod fixed R", "Mod full"):
+            self.waveMaker.setMod(True)
 
-        pos = self.__WalkerInitalPositions(mod, R)
+        pos = self.__WalkerInitalPositions()
 
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
         print "Starting mcmc"
@@ -342,10 +380,12 @@ class main():
         
         samples = sampler.chain #samples = [walkers, steps, dim]
 
-        if self.waveMaker.mod == False:
+        if self.mcmcTemplate == "GR":
             labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s"]
-        else:
-            labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", "alpha"]
+        if self.mcmcTemplate == "Mod fixed R":
+            labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", r"$\alpha$"]
+        if self.mcmcTemplate == "Mod full":
+            labels = ["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ /s", r"$\alpha$", r"$\mathcal{R} / m$"]
 
         for i in range(self.nDim):
             ax = axes[i]
@@ -382,26 +422,34 @@ class main():
         #make fig the right size
         fig, axes = plt.subplots(K, K, figsize=(dim, dim))
 
-        if self.waveMaker.mod == False:
+        if self.mcmcTemplate == "GR":
             cornerGR.corner(flatchain, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ / s"], truths=[self.m1, self.m2, self.phic, self.tc], show_titles = True, fig = fig)
             #https://matplotlib.org/users/gridspec.html
             gs = gridspec.GridSpec(20, 20)
             ax = fig.add_subplot(gs[0:4, -9:])        
 
-        else:
+        if self.mcmcTemplate == "Mod fixed R":
             cornerMod.corner(flatchain, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ / s", r"$\alpha$"], show_titles = True, fig = fig)
-            #https://matplotlib.org/users/gridspec.html 
+            gs = gridspec.GridSpec(20, 20)
+            ax = fig.add_subplot(gs[0:4, -9:])
+
+        if self.mcmcTemplate == "Mod full":
+            cornerMod.corner(flatchain, labels=["M${}_1$ / M${}_\odot$", "M${}_2$ / M${}_\odot$", "$\phi_c$", "$t_c$ / s", r"$\alpha$", r"$\mathcal{R}$ / m"], show_titles = True, fig = fig)
             gs = gridspec.GridSpec(20, 20)
             ax = fig.add_subplot(gs[0:4, -9:])
 
         self.__makeSignalPlot(flatchain, axis = ax)
 
-        if self.waveMaker.mod == False:
+        if self.mcmcTemplate == "GR":
             filename = self.figFolderName + "/" + "GR mcmc " + self.params + " " + self.units + " signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std)
             print "\nsaving corner plot to", filename, "\n"
             fig.savefig(self.figFolderName + "/" + "GR mcmc " + self.params + " " + self.units + " signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
-        else:
-            filename = self.figFolderName + "/" + "Mod mcmc " + self.params + " " + self.units + " signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std)
+        if self.mcmcTemplate == "Mod fixed R":
+            filename = self.figFolderName + "/" + "Mod fixed R mcmc " + self.params + " " + self.units + " signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std)
+            print "\nsaving corner plot to", filename, "\n"
+            fig.savefig(filename, bbox_inches='tight')
+        if self.mcmcTemplate == "Mod full":
+            filename = self.figFolderName + "/" + "Mod full mcmc " + self.params + " " + self.units + " signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std)
             print "\nsaving corner plot to", filename, "\n"
             fig.savefig(filename, bbox_inches='tight')
 
@@ -422,10 +470,12 @@ class main():
         """
 
         axis.plot(self.times, self.signal, 'b', label="Signal")
-        if self.waveMaker.mod == False:
+        if self.mcmcTemplate == "GR":
             axis.plot(self.times, self.wave, 'g', label="GR wave")
             plt.gcf().text(0.5, 0.95, "(a)", fontsize=18)
-        else:
+        if self.mcmcTemplate == "Mod fixed R":
+            plt.gcf().text(0.5, 0.95, "(a)", fontsize=22)
+        if self.mcmcTemplate == "Mod full":
             plt.gcf().text(0.5, 0.95, "(a)", fontsize=22)
 
         #meanParams = [np.mean(param) for param in flatchain.T]
@@ -497,12 +547,12 @@ class main():
 if __name__ == "__main__":
     start_time = time.time()
     myClass = main(Params = "GR") # Will us Gw150914 properties
-    #myClass.emcee(mod = False) # will run GR mcmc
+    myClass.emcee(mcmcTemplate = "GR") # will run GR mcmc
     #myClass.emcee(mod = True, R = 1) # will run mod mcmc
     #myClass.emcee(mod = True, R = 10) # will run mod mcmc
     #myClass.emcee(mod = True, R = 100) # will run mod mcmc
     #myClass.emcee(mod = True, R = 1000) # will run mod mcmc
-    myClass.emcee(mod = True, R = 10000) # will run mod mcmc
+    #myClass.emcee(mod = True, R = 10000) # will run mod mcmc
     #myClass.emcee(mod = True, R = 100000) # will run mod mcmc
     #floating point erros plague the values below this
     #myClass.emcee(mod = True, R = 1000000) # will run mod mcmc

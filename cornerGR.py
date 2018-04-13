@@ -306,16 +306,16 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
 
                 if titleCounter == 3: # tc
                     # Format the quantile display with sciantific notation
-                    fmt = "{{0:{0}}}".format(".0e").format
-                    title = r"${{{0}}}_{{-{1}}}^{{+{2}}}\times$"
-                    title = title.format(fmt(q_50)[0], fmt(q_m)[0], fmt(q_p)[0])
-                    title = title + "$10^{{{0}}}$".format(fmt(q_50)[-3:])
-
-                    #fmt = "{{0:{0}}}".format(".2e").format
+                    #fmt = "{{0:{0}}}".format(".0e").format
                     #title = r"${{{0}}}_{{-{1}}}^{{+{2}}}\times$"
-                    #we use : to pick the first four sybols in the result string, eg "1.22"
-                    #title = title.format(fmt(q_50)[:4], fmt(q_m)[:4], fmt(q_p)[:4]) 
+                    #title = title.format(fmt(q_50)[0], fmt(q_m)[0], fmt(q_p)[0])
                     #title = title + "$10^{{{0}}}$".format(fmt(q_50)[-3:])
+
+                    fmt = "{{0:{0}}}".format(".1e").format
+                    title = r"${{{0}}}_{{-{1}}}^{{+{2}}}\times$"
+                    #we use : to pick the first four symbols in the result string, eg "1.22"
+                    title = title.format(fmt(q_50)[:3], fmt(q_m)[:3], fmt(q_p)[:3]) 
+                    title = title + "$10^{{{0}}}$".format(fmt(q_50)[-3:])
 
                 titleCounter = (titleCounter + 1) % 4
 
