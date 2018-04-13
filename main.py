@@ -113,7 +113,7 @@ class main():
         self.m2 = self.Properties.m2
         self.phic = self.Properties.phic
         self.tc = self.Properties.tc
-        self.alpha = 0.5
+        self.alpha = 0.99
         self.signalStart     = self.Properties.signalStart
         self.signalSamples   = self.Properties.signalSamples
         self.signalTimestep  = self.Properties.signalTimestep    
@@ -177,32 +177,17 @@ class main():
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
 
-    def emcee(self, mod = False, R = 1.0):
+    def __WalkerInitalPositions(self, mod, R):
         """
-        Will call emcee to find the best fit values for a gravitational wave from the signal made from 
-        the passed paramiters on initialisation of the class.
-
-        Will produce a corner plot of the mcmc output.
+        Will return an array of initial conditions for the paramiters of the wave.
 
         Parameters
         ----------
-
-        mod : bool
-            whether or not we are comparing to a modified wave.
-
+        mod : Bool
+            whether or not we are running mcmc on a modifide wave.
         R : float
-            the size of the 
+            the screening radius
         """
-
-        self.__makeFigFolders(mod, R)
-
-        self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
-        self.waveMaker.setMod(False)
-        self.wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
-        self.signal = np.random.normal(self.wave, self.std)
-
-
-        self.waveMaker.setMod(mod)
 
         if mod == False:
             self.nDim = 4
@@ -227,12 +212,43 @@ class main():
             #params[2] = -np.pi if params[2] < -np.pi  else params[2]
             #params[2] = np.pi if params[2] >  np.pi else params[2]
 
-            params[3] = -params[3] if params[3] < 0 else params[3]
+            params[3] = -10 if params[3] < -10 else params[3]
             params[3] = 10 if params[3] > 10 else params[3]
 
             if mod == True:
                 params[4] = 0 if params[4] < 0 else params[4]
                 params[4] = 1 if params[4] > 1 else params[4]
+
+        return pos
+
+
+    def emcee(self, mod = False, R = 1.0):
+        """
+        Will call emcee to find the best fit values for a gravitational wave from the signal made from 
+        the passed paramiters on initialisation of the class.
+
+        Will produce a corner plot of the mcmc output.
+
+        Parameters
+        ----------
+
+        mod : bool
+            whether or not we are comparing to a modified wave.
+
+        R : float
+            the size of the 
+        """
+
+        self.__makeFigFolders(mod, R)
+
+        self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
+        self.waveMaker.setMod(False)
+        self.wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
+        self.signal = np.random.normal(self.wave, self.std)
+
+        self.waveMaker.setMod(mod)
+
+        pos = self.__WalkerInitalPositions(mod, R)
 
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
         print "Starting mcmc"
@@ -243,7 +259,6 @@ class main():
 
         #self.__makeWalkerPlot(sampler)
         self.__makeCornerPlot(flatchain)
-
         #self.__makeSignalPlot(flatchain)
 
 
@@ -269,13 +284,13 @@ class main():
 
     def __lnPriorMod(self, m1, m2, phic, tc, alpha):
         #if 0 < m1 < 100 and 0 < m2 < m1 and -np.pi <= phic <= np.pi and -10 <= tc < 10.0 and 0 <= alpha <= 1:
-        if 0 < m1 < 100 and 0 < m2 < m1 and 0 <= phic <= 2*np.pi and -10 <= tc < 10.0 and 0 <= alpha <= 1:
+        if 0.0 < m1 < 100.0 and 0.0 < m2 < m1 and 0.0 <= phic < 2*np.pi and -10.0 < tc < 10.0 and 0.0 <= alpha <= 1.0:
             return 0.0
         return -np.inf
 
     def __lnPriorGR(self, m1, m2, phic, tc):
         #if 0 < m1 < 100 and 0 < m2 < m1 and -np.pi <= phic <= np.pi and -10 < tc < 10.0:
-        if 0 < m1 < 100 and 0 < m2 < m1 and 0 <= phic <= 2*np.pi and -10 < tc < 10.0:
+        if 0.0 < m1 < 100.0 and 0.0 < m2 < m1 and 0.0 <= phic < 2*np.pi and -10.0 < tc < 10.0:
             return 0.0
         return -np.inf
 
@@ -379,13 +394,18 @@ class main():
             gs = gridspec.GridSpec(20, 20)
             ax = fig.add_subplot(gs[0:4, -9:])
 
-
-        
-
         self.__makeSignalPlot(flatchain, axis = ax)
 
-        fig.savefig(self.figFolderName + "/" + "params " + self.params + " " + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
-        
+        if self.waveMaker.mod == False:
+            filename = self.figFolderName + "/" + "GR mcmc " + self.params + " " + self.units + " signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std)
+            print "\nsaving corner plot to", filename, "\n"
+            fig.savefig(self.figFolderName + "/" + "GR mcmc " + self.params + " " + self.units + " signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')
+        else:
+            filename = self.figFolderName + "/" + "Mod mcmc " + self.params + " " + self.units + " signalStart %f signalSamples %d signalTimestep %f std %.1f corner.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std)
+            print "\nsaving corner plot to", filename, "\n"
+            fig.savefig(filename, bbox_inches='tight')
+
+
 
     def __makeSignalPlot(self, flatchain, axis = plt):
         """ 
@@ -421,8 +441,10 @@ class main():
         if axis == plt:
             axis.legend(loc = "best")
             axis.set_title("Waveform for (%.1f M${}_\odot$, %.1f M${}_\odot$) non-spining system" % (self.m1, self.m2))
+            filename = self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f MeanModeTrueSignalPlot.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std)
+            print "saving signalPlot plot to", filename            
             plt.savefig(self.figFolderName + "/" + self.params + self.units + " units signal signalStart %f signalSamples %d signalTimestep %f std %f MeanModeTrueSignalPlot.pdf" % (self.signalStart, self.signalSamples, self.signalTimestep, self.std), bbox_inches='tight')   
-            return
+
     
     def __findMostLikely(self, flatchain):
         """
@@ -475,12 +497,12 @@ class main():
 if __name__ == "__main__":
     start_time = time.time()
     myClass = main(Params = "GR") # Will us Gw150914 properties
-    myClass.emcee(mod = False) # will run GR mcmc
-    myClass.emcee(mod = True, R = 1) # will run mod mcmc
+    #myClass.emcee(mod = False) # will run GR mcmc
+    #myClass.emcee(mod = True, R = 1) # will run mod mcmc
     #myClass.emcee(mod = True, R = 10) # will run mod mcmc
     #myClass.emcee(mod = True, R = 100) # will run mod mcmc
     #myClass.emcee(mod = True, R = 1000) # will run mod mcmc
-    #myClass.emcee(mod = True, R = 10000) # will run mod mcmc
+    myClass.emcee(mod = True, R = 10000) # will run mod mcmc
     #myClass.emcee(mod = True, R = 100000) # will run mod mcmc
     #floating point erros plague the values below this
     #myClass.emcee(mod = True, R = 1000000) # will run mod mcmc

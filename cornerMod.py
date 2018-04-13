@@ -287,12 +287,12 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
                 #counter to format titles correctly for time
                 global titleCounter
                 if titleCounter == 0:
-                    fmt = "{{0:{0}}}".format(".0f").format
+                    fmt = "{{0:{0}}}".format(".1f").format
                     title = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
                     title = title.format(fmt(q_50), fmt(q_m), fmt(q_p))
 
                 if titleCounter == 1:
-                    fmt = "{{0:{0}}}".format(".0f").format
+                    fmt = "{{0:{0}}}".format(".1f").format
                     title = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
                     title = title.format(fmt(q_50), fmt(q_m), fmt(q_p))
 
@@ -308,7 +308,7 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
                     title = title.format(fmt(q_50)[0], fmt(q_m)[0], fmt(q_p)[0])
                     title = title + "$10^{{{0}}}$".format(fmt(q_50)[-3:])
 
-                if titleCounter == 4:
+                if titleCounter == 4: # alpha
                     # Format the quantile display with sciantific notation
                     fmt = "{{0:{0}}}".format(".0e").format
                     title = r"${{{0}}}_{{-{1}}}^{{+{2}}}\times$"
@@ -651,3 +651,15 @@ def hist2d(x, y, bins=20, range=None, weights=None, levels=None, smooth=None,
 
     ax.set_xlim(range[0])
     ax.set_ylim(range[1])
+
+
+
+
+
+
+
+
+
+
+
+

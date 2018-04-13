@@ -289,22 +289,22 @@ def corner(xs, bins=20, range=None, weights=None, color="k",
 
                 #counter to format titles correctly for time
                 global titleCounter
-                if titleCounter == 0:
-                    fmt = "{{0:{0}}}".format(".0f").format
+                if titleCounter == 0: # M1
+                    fmt = "{{0:{0}}}".format(".1f").format
                     title = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
                     title = title.format(fmt(q_50), fmt(q_m), fmt(q_p))
 
-                if titleCounter == 1:
-                    fmt = "{{0:{0}}}".format(".0f").format
+                if titleCounter == 1: # M2
+                    fmt = "{{0:{0}}}".format(".1f").format
                     title = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
                     title = title.format(fmt(q_50), fmt(q_m), fmt(q_p))
 
-                if titleCounter == 2:
+                if titleCounter == 2: # phic
                     fmt = "{{0:{0}}}".format(".2f").format
                     title = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
                     title = title.format(fmt(q_50), fmt(q_m), fmt(q_p))
 
-                if titleCounter == 3:
+                if titleCounter == 3: # tc
                     # Format the quantile display with sciantific notation
                     fmt = "{{0:{0}}}".format(".0e").format
                     title = r"${{{0}}}_{{-{1}}}^{{+{2}}}\times$"
