@@ -38,6 +38,7 @@ class GRWaveMaker:
         self.Gm_c03 = None
         self.mod = False
         self.R = None
+        self.alpha = None
         self.makeWave = self.__makeWave
 
     def setMod(self, value):
@@ -91,17 +92,17 @@ class GRWaveMaker:
     def __Hp2(self):
         return 1 / 120. * ( ( 22 + 396 * c2 + 145 * c4 - 5 * c6 ) + 5 / 3. * self.eta * ( 706 - 216 * c2 - 251 * c4 + 15 * c6 )  - 5 * self.eta2 * ( 98 - 108 * c2 + 7 * c4 + 5 * c6 ) ) * cos(2*self.psi) + 2 / 15. * s2 * ( ( 59 + 35 * c2 - 8 * c4 ) - 5 / 3. * self.eta * ( 131 + 59 * c2 - 24 * c4 ) + 5 * self.eta2 * ( 21 - 3 * c2 - 8 * c4 ) ) * cos(4*self.psi) - 81 / 40. * ( 1 - 5 * self.eta + 5 * self.eta2 ) * s4 * ( 1 + c2 ) * cos(6*self.psi) + s / 40. * self.dm / self.m * ( ( 11 + 7 * c2 + 10 * (5 + c2) * ln2 ) * sin(self.psi) - 5 * pi * ( 5 + c2 ) * cos(self.psi) - 27 * ( 7 - 10 * ln3_2) * ( 1 + c2 ) * sin(3*self.psi) + 135 * pi * ( 1 + c2 ) * cos(3*self.psi) ) 
 
-    def __boundaryp(self, R):
-        a = 12.0 / 5.0 * self.eta * R 
-        b = self.x**4 * ( 3 * s2 + 5 * (1+c2) * cos ( 2 * self.phi ) ) 
-        c = self.x**5 * ( ( 47 + 5 * self.eta ) * s2 + ( 41 - self.eta ) * ( 1 + c2 ) * cos( 2 * self.phi ) ) 
-        return a*(b+c)    
+    def __modHp3_2(self):
+        return 8 / (3.0 * self.alpha) * (-1/4.0) * ( 1 + c2 ) * sin(2*self.psi)
 
-    def __boundaryc(self, R):
-        # for R = 1, abs(val) approx 10-5 - 10-3
-        # for R = 100, max approx 1
-        return 24.0 / 5.0 * self.eta * R * ( 3 * self.x**4 + ( 25 - self.eta ) * self.x**5 )* c * sin( 2 * self.phi ) 
+    def __modHc3_2(self):
+        return 8 / (3.0 * self.alpha) * (1/2.0) * c * cos(2*self.psi)
          
+    def __modHp2(self):
+        return self.dm / (5.0 * self.m * self.alpha) * ( 7/4.0 * ( s2 + ( 1 + c2 ) * cos( 2 * self.psi ) ) * s * sin(self.psi) - 5 * ( s2 - ( 1 + c2 ) * cos(2*self.psi) ) * s * sin(self.psi) + 5 * ( 1 + c2) * sin(2*self.psi) * s * cos(self.phi) )
+
+    def __modHc2(self):
+        return self.dm / (5.0 * self.m * self.alpha) * ( 7/2.0 * c * s * sin(2*self.psi) * sin(self.psi) + 10 * c * s * sin(2*self.psi) * sin(self.psi) - 10 * c * s * cos(2*self.psi) * cos(self.psi) )
 
     def __makeWave(self, m1, m2, phic, tc, t):
         #start_time = time.time()
@@ -111,19 +112,25 @@ class GRWaveMaker:
         return hp_r
 
     def __makeModWave(self, m1, m2, phic, tc, alpha, t):
-        hp_r = self.__makeWave(m1, m2, phic, tc, t)
-        hp_r_boundary = self.__boundaryp(self.R)
+        self.__setVariables(m1, m2, phic, tc, t)
+        self.alpha = float(alpha)
+        hp_r = 2 * self.c0 * self.Gm_c03 * self.m * self.eta * self.x * ( self.__Hp0() + self.x**(1/2.) * self.__Hp1_2() + self.x * self.__Hp1() + self.x**(3/2.) * (self.__Hp3_2() + self.__modHp3_2()) + self.x**(2) * (self.__Hp2() + self.__modHp2()) )        
 
         if len(hp_r) == 0:
-            print "wavelength 0 for ", m1, m2, phic, tc, alpha  
-      
-        return hp_r + (1 - alpha) * hp_r_boundary
+            print "len(wavelength) == 0 for ", m1, m2, phic, tc, alpha  
+
+        return hp_r
+
+    def madeMod(self, m1, m2, phic, tc, alpha, t):
+        self.__setVariables(m1, m2, phic, tc, t)
+        self.alpha = alpha
+        return 2 * self.c0 * self.Gm_c03 * self.m * self.eta * self.x * (  self.x**(3/2.) *  self.__modHp3_2() + self.x**(2) * self.__modHp2() )        
 
     def __setVariables(self, m1, m2, phic, tc, t):
-        self.m1 = m1
-        self.m2 = m2
-        self.phic = phic
-        self.tc = tc
+        self.m1 = float(m1)
+        self.m2 = float(m2)
+        self.phic = float(phic)
+        self.tc = float(tc)
         self.omega0 = 10 * pi
         self.__m()
         #print "\nm", self.m
