@@ -1,5 +1,5 @@
 
-from numpy import cos, sin , log, pi, arange, isnan, isfinite
+from numpy import cos, sin , log, pi, arange, isnan, isfinite, tan
 import time
 import sys
 
@@ -93,16 +93,16 @@ class GRWaveMaker:
         return 1 / 120. * ( ( 22 + 396 * c2 + 145 * c4 - 5 * c6 ) + 5 / 3. * self.eta * ( 706 - 216 * c2 - 251 * c4 + 15 * c6 )  - 5 * self.eta2 * ( 98 - 108 * c2 + 7 * c4 + 5 * c6 ) ) * cos(2*self.psi) + 2 / 15. * s2 * ( ( 59 + 35 * c2 - 8 * c4 ) - 5 / 3. * self.eta * ( 131 + 59 * c2 - 24 * c4 ) + 5 * self.eta2 * ( 21 - 3 * c2 - 8 * c4 ) ) * cos(4*self.psi) - 81 / 40. * ( 1 - 5 * self.eta + 5 * self.eta2 ) * s4 * ( 1 + c2 ) * cos(6*self.psi) + s / 40. * self.dm / self.m * ( ( 11 + 7 * c2 + 10 * (5 + c2) * ln2 ) * sin(self.psi) - 5 * pi * ( 5 + c2 ) * cos(self.psi) - 27 * ( 7 - 10 * ln3_2) * ( 1 + c2 ) * sin(3*self.psi) + 135 * pi * ( 1 + c2 ) * cos(3*self.psi) ) 
 
     def __modHp3_2(self):
-        return 8 / (3.0 * self.alpha) * (-1/4.0) * ( 1 + c2 ) * sin(2*self.psi)
+        return 8 / (3.0 * tan(pi*self.alpha/2)) * (-1/4.0) * ( 1 + c2 ) * sin(2*self.psi)
 
     def __modHc3_2(self):
-        return 8 / (3.0 * self.alpha) * (1/2.0) * c * cos(2*self.psi)
+        return 8 / (3.0 * tan(pi*self.alpha/2)) * (1/2.0) * c * cos(2*self.psi)
          
     def __modHp2(self):
-        return self.dm / (5.0 * self.m * self.alpha) * ( 7/4.0 * ( s2 + ( 1 + c2 ) * cos( 2 * self.psi ) ) * s * sin(self.psi) - 5 * ( s2 - ( 1 + c2 ) * cos(2*self.psi) ) * s * sin(self.psi) + 5 * ( 1 + c2) * sin(2*self.psi) * s * cos(self.phi) )
+        return self.dm / (5.0 * self.m * tan(pi*self.alpha/2)) * ( 7/4.0 * ( s2 + ( 1 + c2 ) * cos( 2 * self.psi ) ) * s * sin(self.psi) - 5 * ( s2 - ( 1 + c2 ) * cos(2*self.psi) ) * s * sin(self.psi) + 5 * ( 1 + c2) * sin(2*self.psi) * s * cos(self.phi) )
 
     def __modHc2(self):
-        return self.dm / (5.0 * self.m * self.alpha) * ( 7/2.0 * c * s * sin(2*self.psi) * sin(self.psi) + 10 * c * s * sin(2*self.psi) * sin(self.psi) - 10 * c * s * cos(2*self.psi) * cos(self.psi) )
+        return self.dm / (5.0 * self.m * tan(pi*self.alpha/2)) * ( 7/2.0 * c * s * sin(2*self.psi) * sin(self.psi) + 10 * c * s * sin(2*self.psi) * sin(self.psi) - 10 * c * s * cos(2*self.psi) * cos(self.psi) )
 
     def __makeWave(self, m1, m2, phic, tc, t):
         #start_time = time.time()

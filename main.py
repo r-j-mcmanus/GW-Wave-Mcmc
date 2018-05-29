@@ -20,9 +20,6 @@ class mcmcParams:
     nWalkers = 100
     burnIn = 1000
     nSteps = 4000
-    #nWalkers = 20
-    #burnIn = 50
-    #nSteps = 200
 
 class GW150914:
     name = "GW150914"
@@ -31,20 +28,67 @@ class GW150914:
     phic = 0.0
     tc = 0.0
     
-    #signalFq = 300.0
-    signalFq = 600.0
+    signalFq = 360.0
 
     signalTimestep = 1/signalFq
     signalStart = -signalTimestep
     signalSamples = int(0.2 / signalTimestep)
 
-    std = 0.5
-    #std = 2.0   # needs to be a float
+    #std = 0.5
+    std = 2.0   # needs to be a float
     #ligo samples at 16384 hz. online data downsamples to 4096 hz
     # "In their most sensative band, 100-300Hz, ..."
     #Over 0.2 s, the sifnal increases in frequency and amplitude in about 8 cycles from 35 hz to 150 hz
 
-class WWProperties:
+class GW151226:
+    name = "GW151226"
+    m1 = 31.2 #+8.4 - 6.0
+    m2 = 19.4 #+5.3 - 5.9                         
+    phic = 0.0
+    tc = 0.0
+    
+    signalFq = 360.0
+
+    signalTimestep = 1/signalFq
+    signalStart = -signalTimestep
+    signalSamples = int(0.09 / signalTimestep)
+
+    std = 2.0   # needs to be a float
+
+
+
+class GW170104:
+    name = "GW170104"
+    m1 = 14.2 #+8.3 -3.7
+    m2 = 19.4 #+2.3 -2.3                         
+    phic = 0.0
+    tc = 0.0
+    
+    signalFq = 360.0
+
+    signalTimestep = 1/signalFq
+    signalStart = -signalTimestep
+    signalSamples = int(0.09 / signalTimestep)
+
+    std = 2.0   # needs to be a float
+
+
+class GW170814:
+    name = "GW170814"
+    m1 = 30.5 #+5.7 -3.1
+    m2 = 25.3 #+2.8 - 4.2                          
+    phic = 0.0
+    tc = 0.0
+    
+    signalFq = 360.0
+
+    signalTimestep = 1/signalFq
+    signalStart = -signalTimestep
+    signalSamples = int(0.08 / signalTimestep)
+
+    std = 1.5   # needs to be a float
+
+class WW:
     # will recover WW fig 8
     m1 = 10
     m2 = 1.4                         
@@ -58,28 +102,16 @@ class WWProperties:
 
 class main():
 
-    def __init__(self, nWalkers = None, burnIn=None, nSteps=None, Params = "GW150914"):
+    def __init__(self, params = "WW"):
         cwd = os.getcwd()
 
-        if nWalkers == None:
-            self.nWalkers = mcmcParams.nWalkers
-        else: 
-            self.nWalkers = nWalkers
-
-        if burnIn == None:
-            self.burnIn = mcmcParams.burnIn
-        else: 
-            self.burnIn = burnIn
-
-        if nSteps == None:
-            self.nSteps = mcmcParams.nSteps
-        else: 
-            self.nSteps = nSteps
+        self.nWalkers = mcmcParams.nWalkers
+        self.burnIn = mcmcParams.burnIn
+        self.nSteps = mcmcParams.nSteps
 
         self.waveMaker = GRWaveMaker()
 
-        self.Params = Params
-        self.setParams(Params)
+        self.setParams(params)
         self.__setGandC0("si")
 
         self.baseFigFolderName = "plots"
@@ -92,31 +124,37 @@ class main():
 
     
 
-    def setParams(self, Params):
+    def setParams(self, params):
         """
         Will set the paramiters for the binary system from the two classes Gw150914 or WWProperties.
 
         Parameters
         ----------
-        Params : string
-            Pass either "WW" for WWProperties or "Gw150914" for Gw150914
+        params : string
+            Pass either "WW" for WWProperties, "GW150914" for GW150914 ect
         """
-        if Params == "WW":
-            Properties = WWProperties
-            self.params = Params
-        else:
-            if Params == "GW150914":        
-                Properties = GW150914
-                self.params = Params
-            else:
-                print ("---Error: Params", Params, "not a valid option")
-                raise ValueError( "Params", Params, "not a valid option")
+        self.params = params
+        if params == "WW":
+            Properties = WW
+        if params == "GW151226":        
+            Properties = GW151226
+        if params == "GW150914":        
+            Properties = GW150914
+        if params == "GW170104":        
+            Properties = GW170104
+        if params == "GW170814":        
+            Properties = GW170814
+
+
+        if params not in ("WW", "GW151226", "GW150914", "GW170104", "GW170814"):
+            print ("---Error: params", params, "not a valid option")
+            raise ValueError( "params", params, "not a valid option")
 
         self.m1 = Properties.m1
         self.m2 = Properties.m2
         self.phic = Properties.phic
         self.tc = Properties.tc
-        self.alpha = 0.5
+        self.alpha = 0.9
         self.signalStart     = Properties.signalStart
         self.signalSamples   = Properties.signalSamples
         self.signalTimestep  = Properties.signalTimestep    
@@ -141,14 +179,15 @@ class main():
             self.waveMaker.c0 = 1
             self.waveMaker.Gm_c03 = 1
             self.units = GandC0
-        else:
-            if GandC0 == "si":
-                self.waveMaker.c0 = 299782.
-                self.waveMaker.Gm_c03 = 4.925 * 10**(-6)
-                self.units = GandC0
-            else:
-                print ("---Error: GandC0", GandC0, "not a valid option")
-                raise ValueError, "Params not found"
+            return
+        if GandC0 == "si":
+            self.waveMaker.c0 = 299782.
+            self.waveMaker.Gm_c03 = 4.925 * 10**(-6)
+            self.units = GandC0
+            return
+                
+        print ("---Error: GandC0", GandC0, "not a valid option")
+        raise ValueError, "Params not found"
 
     def __makeFigFolders(self):
         """
@@ -164,7 +203,7 @@ class main():
             self.figFolderName = self.baseFigFolderName + "/gr_wave_mcmc"
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
-            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn)
+            self.figFolderName += "/params_" + self.params + "_nWalkers_%d_nSteps_%d_burnIn_%d" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn)
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
             return
@@ -173,7 +212,7 @@ class main():
             self.figFolderName = self.baseFigFolderName +  "/mod_wave_mcmc"
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
-            self.figFolderName += "/params_" + self.Params + "_nWalkers_%d_nSteps_%d_burnIn_%d_Mod" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn)
+            self.figFolderName += "/params_" + self.params + "_nWalkers_%d_nSteps_%d_burnIn_%d_Mod" % (mcmcParams.nWalkers, mcmcParams.nSteps, mcmcParams.burnIn)
             if not os.path.exists(cwd + "/" + self.figFolderName):
                 os.makedirs(cwd + "/" + self.figFolderName)
             return
@@ -218,46 +257,56 @@ class main():
 
             if self.mcmcTemplate == "Mod":
                 po[4] = 0 if po[4] < 0 else po[4]
+                po[4] = 0.9 if po[4] > 1 else po[4]
 
 
 
         return pos
 
 
-    def emcee(self, mod = False):
+    def emcee(self):
         """
         Will call emcee to find the best fit values for a gravitational wave from the signal made from 
         the passed paramiters on initialisation of the class.
 
         Will produce a corner plot of the mcmc output.
 
-        Parameters
-        ----------
-
-        mcmcTemplate : bool
-            if False, will run emcee on GR template
-            if True, will run emcee on Mod template
 
         """
 
-        #check function paramiters
-        if mod not in (True, False):
-            raise ValueError("Invalid mcmcTemplate paramiter,", mcmcTemplate,", passed to emcee call.")
 
-        self.mcmcTemplate = "GR" if mod == False else "Mod"
-
-        self.__makeFigFolders()
-
+        #initial set up of signal
         self.times = -np.arange(self.signalSamples) * self.signalTimestep + self.signalStart
         self.waveMaker.setMod(False)
         self.wave = self.waveMaker.makeWave(self.m1, self.m2, self.phic, self.tc, self.times)
         self.signal = np.random.normal(self.wave, self.std)
 
-        if self.mcmcTemplate == "Mod":
-            self.waveMaker.setMod(True)
+        #run analysys for GR template
+        self.mcmcTemplate = "GR"
+        self.__makeFigFolders() # will make the folder to place the GR plots in 
 
-        pos = self.__WalkerInitalPositions()
+        pos = self.__WalkerInitalPositions() # will set nDim based on self.mcmcTemplate
+        sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
 
+        print "Starting mcmc with params", self.params
+
+        sampler.run_mcmc(pos, self.nSteps)
+        
+        chain = sampler.chain[:, self.burnIn:, :].reshape((-1,self.nDim))
+        flatchain = chain.reshape((-1,self.nDim))
+
+        #self.__makeWalkerPlot(sampler)
+        self.__makeCornerPlot(flatchain)
+        #self.__makeSignalPlot(flatchain)
+        """
+        print '\n\n\nMod Mcmc\n\n\n'
+
+        #run analysys for Mod template
+        self.waveMaker.setMod(True)
+        self.mcmcTemplate = "Mod"
+        self.__makeFigFolders() # will make the folder to place the GR plots in 
+
+        pos = self.__WalkerInitalPositions() # will set nDim based on self.mcmcTemplate
         sampler = emcee.EnsembleSampler(self.nWalkers, self.nDim, self.__lnProb)
         print "Starting mcmc"
         sampler.run_mcmc(pos, self.nSteps)
@@ -268,7 +317,7 @@ class main():
         #self.__makeWalkerPlot(sampler)
         self.__makeCornerPlot(flatchain)
         #self.__makeSignalPlot(flatchain)
-
+        """
 
 
 
@@ -291,13 +340,11 @@ class main():
         return lp + lnlike
 
     def __lnPriorMod(self, m1, m2, phic, tc, alpha):
-        #if 0 < m1 < 100 and 0 < m2 < m1 and -np.pi <= phic <= np.pi and -10 <= tc < 10.0 and 0 <= alpha <= 1:
         if 0.0 < m1 < 100.0 and 0.0 < m2 < m1 and 0.0 <= phic < 2*np.pi and -10.0 < tc < 10.0 and 0 < alpha < 1:
             return 0.0
         return -np.inf
 
     def __lnPriorGR(self, m1, m2, phic, tc):
-        #if 0 < m1 < 100 and 0 < m2 < m1 and -np.pi <= phic <= np.pi and -10 < tc < 10.0:
         if 0.0 < m1 < 100.0 and 0.0 < m2 < m1 and 0.0 <= phic < 2*np.pi and -10.0 < tc < 10.0:
             return 0.0
         return -np.inf
@@ -504,9 +551,14 @@ class main():
 
 if __name__ == "__main__":
     start_time = time.time()
-    myClass = main(Params = "GW150914") # Will us Gw150914 properties
-    #myClass.emcee(mod = False)    # will run GR mcmc
-    myClass.emcee(mod = True)     # will run mod mcmc
+    myClass = main("GW150914")
+    #myClass.emcee()
+    myClass.setParams("GW151226")
+    myClass.emcee()
+    myClass.setParams("GW170104")
+    myClass.emcee()
+    myClass.setParams("GW170814")
+    myClass.emcee()
     print("--- %s seconds ---" % (time.time() - start_time))
     print("\n")
 
